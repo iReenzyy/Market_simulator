@@ -1,0 +1,1874 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Trading & Liquidity Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #12151c;
+            color: #d1d5db;
+            overflow: hidden;
+            height: 100vh;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #181c27;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a3142;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b455b;
+        }
+        .btn-active {
+            background-color: #2b354d !important;
+            border-color: #3b82f6 !important;
+            color: #60a5fa !important;
+        }
+        .tool-active {
+            background-color: #3b82f6 !important;
+            color: #ffffff !important;
+        }
+        input[type=range] {
+            accent-color: #3b82f6;
+        }
+        .edu-popup {
+            background: rgba(19, 23, 34, 0.94);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen w-screen overflow-hidden text-xs">
+
+    <header class="h-12 bg-[#181c27] border-b border-[#262c3d] flex items-center justify-between px-3 shrink-0 z-20">
+        <!-- Pair & Price Info -->
+        <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="font-bold text-sm tracking-wide text-white">BTC/USDT</span>
+                <span id="label-simulated" class="bg-[#262c3d] text-gray-300 text-[10px] px-1.5 py-0.5 rounded font-mono">СИМУЛЯЦИЯ</span>
+            </div>
+            
+            <div class="h-4 w-[1px] bg-[#262c3d]"></div>
+
+            <div class="flex items-center space-x-3 mono text-xs">
+                <div>
+                    <span id="lbl-header-price" class="text-gray-400 text-[9px] block">ЦЕНА</span>
+                    <div id="header-price" class="font-bold text-emerald-400">$64,250.00</div>
+                </div>
+                <div>
+                    <span id="lbl-header-change" class="text-gray-400 text-[9px] block">ИЗМ. 24ч</span>
+                    <div id="header-change" class="text-emerald-400">+2.45%</div>
+                </div>
+                <div>
+                    <span id="lbl-header-state" class="text-gray-400 text-[9px] block">СОСТОЯНИЕ</span>
+                    <div id="header-state" class="text-blue-400 font-semibold">НАКОПЛЕНИЕ</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls, Language Toggle & AI Buttons -->
+        <div class="flex items-center space-x-2">
+            <!-- Language Switcher -->
+            <div class="flex bg-[#12151c] p-0.5 rounded border border-[#262c3d] text-[10px] font-bold">
+                <button id="lang-ru" class="px-2 py-0.5 rounded bg-blue-600 text-white">RU</button>
+                <button id="lang-en" class="px-2 py-0.5 rounded text-gray-400 hover:text-white">EN</button>
+            </div>
+
+            <div class="h-4 w-[1px] bg-[#262c3d]"></div>
+
+            <!-- Timeframe selector -->
+            <div class="flex bg-[#12151c] p-0.5 rounded border border-[#262c3d]" id="timeframe-buttons">
+                <button data-tf="1M" class="px-2 py-0.5 rounded text-gray-300 hover:text-white btn-tf">1M</button>
+                <button data-tf="5M" class="px-2 py-0.5 rounded text-gray-300 hover:text-white btn-tf btn-active">5M</button>
+                <button data-tf="15M" class="px-2 py-0.5 rounded text-gray-300 hover:text-white btn-tf">15M</button>
+                <button data-tf="1H" class="px-2 py-0.5 rounded text-gray-300 hover:text-white btn-tf">1H</button>
+                <button data-tf="4H" class="px-2 py-0.5 rounded text-gray-300 hover:text-white btn-tf">4H</button>
+                <button data-tf="1D" class="px-2 py-0.5 rounded text-gray-300 hover:text-white btn-tf">1D</button>
+            </div>
+
+            <div class="h-4 w-[1px] bg-[#262c3d]"></div>
+
+            <!-- Market Phase Preset Dropdown -->
+            <div class="flex items-center space-x-1">
+                <select id="preset-phase-select" class="bg-[#12151c] border border-[#262c3d] rounded text-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-500">
+                    <option value="DYNAMIC">Динамический цикл (ИИ)</option>
+                    <option value="ACCUMULATION">Накопление / Флэт</option>
+                    <option value="BULL_TREND">Бычий тренд</option>
+                    <option value="BEAR_TREND">Медвежий тренд</option>
+                    <option value="SWEEP">Снятие ликвидности / Сквиз</option>
+                </select>
+            </div>
+
+            <!-- Gemini AI Buttons -->
+            <button id="btn-ai-analyze" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-2.5 py-1 rounded font-medium flex items-center space-x-1 transition shadow-lg shadow-purple-950/40">
+                <span id="btn-text-ai-analyze">✨ ИИ Разбор</span>
+            </button>
+            <button id="btn-ai-news" class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white px-2.5 py-1 rounded font-medium flex items-center space-x-1 transition shadow-lg shadow-amber-950/40">
+                <span id="btn-text-ai-news">📰 ИИ Новость</span>
+            </button>
+
+            <div class="h-4 w-[1px] bg-[#262c3d]"></div>
+
+            <!-- Speed & Playback -->
+            <div class="flex items-center space-x-1 bg-[#12151c] p-0.5 rounded border border-[#262c3d]">
+                <button id="btn-pause" class="px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-200 font-mono">⏸</button>
+                <button id="btn-play" class="px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-mono">▶</button>
+                <select id="speed-select" class="bg-transparent text-gray-300 px-1 text-xs outline-none cursor-pointer">
+                    <option value="1">1x</option>
+                    <option value="2">2x</option>
+                    <option value="5" selected>5x</option>
+                    <option value="10">10x</option>
+                </select>
+            </div>
+
+            <button id="btn-reset-chart" class="bg-[#262c3d] hover:bg-[#343b50] text-gray-200 px-2 py-1 rounded border border-gray-700 transition text-xs">
+                ↺
+            </button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- LEFT DRAWING TOOLBAR -->
+        <div class="w-12 bg-[#181c27] border-r border-[#262c3d] flex flex-col items-center py-2 space-y-2 shrink-0 z-10">
+            <button id="tool-cursor" title="Курсор / Панорама" class="w-8 h-8 rounded flex items-center justify-center hover:bg-[#262c3d] text-gray-300 tool-btn tool-active">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"></path></svg>
+            </button>
+            <button id="tool-trendline" title="Трендовая линия" class="w-8 h-8 rounded flex items-center justify-center hover:bg-[#262c3d] text-gray-300 tool-btn">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 20L20 4"></path></svg>
+            </button>
+            <button id="tool-horizontal" title="Уровень Поддержки / Сопротивления" class="w-8 h-8 rounded flex items-center justify-center hover:bg-[#262c3d] text-gray-300 tool-btn">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h18"></path></svg>
+            </button>
+            <button id="tool-rectangle" title="Зона Ордерблока / Дисбаланса" class="w-8 h-8 rounded flex items-center justify-center hover:bg-[#262c3d] text-gray-300 tool-btn">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" stroke-width="2"></rect></svg>
+            </button>
+            <button id="tool-ruler" title="Линейка диапазона" class="w-8 h-8 rounded flex items-center justify-center hover:bg-[#262c3d] text-gray-300 tool-btn">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M3 12h12M3 18h18"></path></svg>
+            </button>
+
+            <div class="w-6 h-[1px] bg-[#262c3d] my-1"></div>
+
+            <button id="btn-clear-drawings" title="Очистить графику" class="w-8 h-8 rounded flex items-center justify-center hover:bg-red-950/40 text-red-400 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            </button>
+        </div>
+
+        <!-- CENTER CHART CONTAINER -->
+        <div class="flex-1 relative flex flex-col h-full overflow-hidden bg-[#12151c]">
+            <!-- Canvas Wrapper -->
+            <div id="canvas-container" class="flex-1 w-full h-full relative overflow-hidden">
+                <canvas id="chartCanvas" class="absolute inset-0 w-full h-full cursor-crosshair"></canvas>
+                
+                <!-- Floating Info Legend -->
+                <div class="absolute top-2 left-3 pointer-events-none flex flex-col space-y-0.5 text-[11px] mono bg-[#181c27]/80 p-2 rounded border border-[#262c3d]">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-gray-300 font-bold">O:</span><span id="legend-open" class="text-gray-200">64120.0</span>
+                        <span class="text-gray-300 font-bold">H:</span><span id="legend-high" class="text-gray-200">64300.5</span>
+                        <span class="text-gray-300 font-bold">L:</span><span id="legend-low" class="text-gray-200">64050.0</span>
+                        <span class="text-gray-300 font-bold">C:</span><span id="legend-close" class="text-emerald-400">64250.0</span>
+                    </div>
+                    <div class="text-gray-400 text-[10px]">
+                        Vol: <span id="legend-vol" class="text-gray-300">142.50 BTC</span>
+                    </div>
+                </div>
+
+                <!-- Floating Educational Concept Popup Card -->
+                <div id="edu-card" class="hidden absolute top-4 right-4 max-w-md edu-popup p-4 rounded-lg z-30 transition-all duration-300 border-l-4 border-blue-500">
+                    <div class="flex justify-between items-start mb-1.5">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-blue-400 bg-blue-950/60 px-2 py-0.5 rounded border border-blue-800" id="edu-tag">СНИТИЕ ЛИКВИДНОСТИ</span>
+                            <span class="text-[10px] bg-amber-950/80 text-amber-300 border border-amber-700/60 px-1.5 py-0.5 rounded font-mono flex items-center space-x-1">
+                                <span>⏸</span><span id="edu-pause-badge">Пауза симуляции</span>
+                            </span>
+                            <span class="text-[10px] text-gray-400 mono" id="edu-time">Только что</span>
+                        </div>
+                        <button id="edu-close" class="text-gray-400 hover:text-white font-bold ml-2">✕</button>
+                    </div>
+                    <h4 id="edu-title" class="font-bold text-white text-sm mb-1">Исполнен манипулятивный захват стопов</h4>
+                    <p id="edu-desc" class="text-gray-300 text-xs leading-relaxed mb-2">
+                        Крупный игрок сдвинул цену за локальный уровень, чтобы активировать стоп-лоссы розничных трейдеров и набрать позицию.
+                    </p>
+                    <div class="bg-[#181c27] p-2 rounded border border-[#262c3d] text-[11px] text-emerald-300 flex items-center justify-between">
+                        <div>
+                            <span class="font-bold" id="lbl-edu-lesson-heading">💡 Урок:</span>
+                            <span id="edu-takeaway">Не ставьте стоп-лоссы ровно под очевидными уровнями поддержки.</span>
+                        </div>
+                        <button id="btn-read-edu-audio" class="text-[10px] bg-blue-950 hover:bg-blue-900 border border-blue-700 text-blue-300 px-2 py-1 rounded ml-2 shrink-0">🔊 Озвучить</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTTOM TABBED PANEL -->
+            <div class="h-44 bg-[#181c27] border-t border-[#262c3d] flex flex-col shrink-0">
+                <div class="flex items-center justify-between border-b border-[#262c3d] px-3 bg-[#12151c]">
+                    <div class="flex space-x-4">
+                        <button id="tab-btn-logs" class="py-1.5 border-b-2 border-blue-500 text-blue-400 font-semibold text-xs">
+                            🧠 Обучающая лента
+                        </button>
+                        <button id="tab-btn-ai" class="py-1.5 border-b-2 border-transparent text-purple-400 hover:text-purple-300 font-semibold text-xs flex items-center space-x-1">
+                            <span>🤖 Ментор Gemini ИИ</span>
+                        </button>
+                        <button id="tab-btn-history" class="py-1.5 border-b-2 border-transparent text-gray-400 hover:text-gray-200 text-xs">
+                            📜 История сделок
+                        </button>
+                    </div>
+                    <div class="flex items-center space-x-2 text-[10px] text-gray-400 mono">
+                        <label class="flex items-center space-x-1 cursor-pointer">
+                            <input type="checkbox" id="toggle-tts-audio" class="rounded bg-gray-800" checked>
+                            <span id="lbl-voiceover">🔊 Голосовой тренер Gemini</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Tab 1: Educational Logs -->
+                <div id="tab-logs" class="flex-1 p-2 overflow-y-auto space-y-1.5 mono text-[11px]">
+                    <div class="text-gray-400 italic" id="log-init-msg">Запуск модели рынка... Наблюдение за действиями китов и маркет-мейкеров.</div>
+                </div>
+
+                <!-- Tab 2: Gemini AI Mentor -->
+                <div id="tab-ai" class="hidden flex-1 p-2.5 flex flex-col overflow-hidden text-xs">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <input id="ai-chat-input" type="text" placeholder="Задайте вопрос Ментору (SMC, управление рисками, паттерны)..." class="flex-1 bg-[#12151c] border border-[#262c3d] rounded px-3 py-1.5 text-white outline-none focus:border-purple-500 text-xs">
+                        <button id="btn-ai-send" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-4 py-1.5 rounded transition">
+                            Спросить
+                        </button>
+                    </div>
+                    
+                    <div class="flex space-x-1.5 mb-2 overflow-x-auto pb-1 text-[10px] shrink-0">
+                        <button class="ai-chip bg-[#12151c] hover:bg-[#262c3d] text-purple-300 px-2 py-1 rounded border border-purple-900/50 whitespace-nowrap">🔍 Разобрать текущий сетап</button>
+                        <button class="ai-chip bg-[#12151c] hover:bg-[#262c3d] text-purple-300 px-2 py-1 rounded border border-purple-900/50 whitespace-nowrap">🛡️ Проверить риск и плечо</button>
+                        <button class="ai-chip bg-[#12151c] hover:bg-[#262c3d] text-purple-300 px-2 py-1 rounded border border-purple-900/50 whitespace-nowrap">⚡ Что такое Снитие ликвидности?</button>
+                        <button class="ai-chip bg-[#12151c] hover:bg-[#262c3d] text-purple-300 px-2 py-1 rounded border border-purple-900/50 whitespace-nowrap">🎯 Где ставить Стоп-лосс и Тейк-профит?</button>
+                    </div>
+
+                    <div id="ai-response-area" class="flex-1 overflow-y-auto bg-[#12151c] p-2.5 rounded border border-[#262c3d] text-gray-300 leading-relaxed font-sans text-xs">
+                        <div class="text-purple-400 font-semibold mb-1">🤖 Ментор Gemini готов к работе</div>
+                        <p class="text-gray-400">Нажмите <span class="text-purple-300">"✨ ИИ Разбор"</span> в шапке или напишите вопрос выше. Ментор проанализирует ордерблоки, риск-менеджмент и озвучит результат!</p>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Trade History -->
+                <div id="tab-history" class="hidden flex-1 overflow-y-auto">
+                    <table class="w-full text-left text-[11px] mono">
+                        <thead class="bg-[#12151c] text-gray-400 sticky top-0 border-b border-[#262c3d]">
+                            <tr>
+                                <th class="p-1.5" id="th-type">Тип</th>
+                                <th class="p-1.5" id="th-entry">Вход</th>
+                                <th class="p-1.5" id="th-exit">Выход</th>
+                                <th class="p-1.5" id="th-size">Размер</th>
+                                <th class="p-1.5" id="th-lev">Плечо</th>
+                                <th class="p-1.5" id="th-pnl">PnL ($)</th>
+                                <th class="p-1.5" id="th-res">Результат</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trade-history-rows" class="divide-y divide-[#262c3d] text-gray-300">
+                            <tr><td colspan="7" class="p-3 text-center text-gray-500" id="no-trades-msg">Нет закрытых сделок. Откройте ордер для начала торговли.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT TRADING PANEL -->
+        <div class="w-72 bg-[#181c27] border-l border-[#262c3d] flex flex-col justify-between p-3 shrink-0 overflow-y-auto z-10">
+            <div class="space-y-3.5">
+                <!-- Account Summary -->
+                <div class="bg-[#12151c] p-2.5 rounded-lg border border-[#262c3d] space-y-2">
+                    <div class="flex justify-between items-center text-gray-400 border-b border-[#262c3d] pb-1.5">
+                        <span class="font-semibold text-gray-200" id="lbl-margin">Депозит / Маржа</span>
+                        <button id="btn-reset-balance" class="text-[10px] text-blue-400 hover:underline">Сброс $10k</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs mono">
+                        <div>
+                            <div class="text-gray-500 text-[10px]" id="lbl-bal">БАЛАНС</div>
+                            <div id="account-balance" class="font-bold text-white">$10,000.00</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500 text-[10px]" id="lbl-eq">СРЕДСТВА</div>
+                            <div id="account-equity" class="font-bold text-white">$10,000.00</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500 text-[10px]" id="lbl-pnl">НЕРЕАЛИЗ. PNL</div>
+                            <div id="account-pnl" class="font-bold text-gray-400">$0.00 (0.00%)</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500 text-[10px]" id="lbl-wr">ВИНРЕЙТ</div>
+                            <div id="account-winrate" class="font-bold text-emerald-400">0% (0/0)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Controls -->
+                <div class="space-y-2.5">
+                    <div class="flex bg-[#12151c] p-0.5 rounded border border-[#262c3d]">
+                        <button id="order-type-market" class="flex-1 py-1 text-center font-semibold rounded text-white bg-blue-600">Маркет</button>
+                        <button id="order-type-limit" class="flex-1 py-1 text-center font-semibold rounded text-gray-400 hover:text-white">Лимит</button>
+                    </div>
+
+                    <!-- Limit Price Input -->
+                    <div id="limit-price-group" class="hidden space-y-1">
+                        <div class="flex justify-between text-gray-400 text-[10px]">
+                            <span id="lbl-limit-price">ЛИМИТНАЯ ЦЕНА</span>
+                            <button id="btn-set-current-price" class="text-blue-400 hover:underline">Текущая</button>
+                        </div>
+                        <input id="input-limit-price" type="number" step="0.1" class="w-full bg-[#12151c] border border-[#262c3d] rounded p-1.5 text-white font-mono text-xs focus:border-blue-500 outline-none" value="64000.0">
+                    </div>
+
+                    <!-- Size Input -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-gray-400 text-[10px]">
+                            <span id="lbl-pos-size">РАЗМЕР (BTC)</span>
+                            <span id="position-cost" class="text-gray-400">Стоимость: $0.00</span>
+                        </div>
+                        <input id="input-position-size" type="number" step="0.01" min="0.01" class="w-full bg-[#12151c] border border-[#262c3d] rounded p-1.5 text-white font-mono text-xs focus:border-blue-500 outline-none" value="0.5">
+                    </div>
+
+                    <!-- Leverage Slider -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-gray-400 text-[10px]">
+                            <span id="lbl-leverage">КРЕДИТНОЕ ПЛЕЧО</span>
+                            <span id="leverage-display" class="font-bold text-blue-400 font-mono">10x</span>
+                        </div>
+                        <input id="leverage-slider" type="range" min="1" max="50" value="10" class="w-full cursor-pointer">
+                        <div class="flex justify-between text-[9px] text-gray-500 font-mono">
+                            <span>1x</span><span>10x</span><span>25x</span><span>50x</span>
+                        </div>
+                    </div>
+
+                    <!-- SL / TP Inputs -->
+                    <div class="space-y-1.5 pt-1 border-t border-[#262c3d]">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center space-x-1.5 text-gray-300 text-xs cursor-pointer">
+                                <input type="checkbox" id="check-sl" class="rounded bg-[#12151c] border-gray-700">
+                                <span>Стоп-лосс (SL)</span>
+                            </label>
+                            <input id="input-sl-price" type="number" step="0.1" class="w-24 bg-[#12151c] border border-[#262c3d] rounded p-1 text-white font-mono text-xs text-right outline-none disabled:opacity-40" placeholder="Цена" disabled>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center space-x-1.5 text-gray-300 text-xs cursor-pointer">
+                                <input type="checkbox" id="check-tp" class="rounded bg-[#12151c] border-gray-700">
+                                <span>Тейк-профит (TP)</span>
+                            </label>
+                            <input id="input-tp-price" type="number" step="0.1" class="w-24 bg-[#12151c] border border-[#262c3d] rounded p-1 text-white font-mono text-xs text-right outline-none disabled:opacity-40" placeholder="Цена" disabled>
+                        </div>
+                    </div>
+
+                    <!-- Buy / Sell Execution Buttons -->
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button id="btn-buy" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded transition shadow-lg shadow-emerald-950/30">
+                            КУПИТЬ / LONG
+                        </button>
+                        <button id="btn-sell" class="bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 rounded transition shadow-lg shadow-rose-950/30">
+                            ПРОДАТЬ / SHORT
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Position Details Box -->
+                <div id="active-position-card" class="bg-[#12151c] p-2.5 rounded-lg border border-[#262c3d] space-y-2">
+                    <div class="flex justify-between items-center border-b border-[#262c3d] pb-1">
+                        <span class="font-bold text-gray-200" id="lbl-active-pos">Активная позиция</span>
+                        <span id="pos-badge" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-800 text-gray-400">НЕТ</span>
+                    </div>
+                    
+                    <div id="pos-details" class="space-y-1.5 text-xs font-mono text-gray-400">
+                        <div class="text-center py-2 text-gray-500 italic" id="pos-none-txt">Нет открытых позиций</div>
+                    </div>
+
+                    <button id="btn-close-position" class="hidden w-full bg-rose-950/60 hover:bg-rose-900 border border-rose-700 text-rose-200 font-semibold py-1.5 rounded transition mt-1">
+                        Закрыть по рынку
+                    </button>
+                </div>
+            </div>
+
+            <!-- Market Info Footer -->
+            <div class="border-t border-[#262c3d] pt-2 text-[10px] text-gray-500 flex justify-between items-center">
+                <span id="lbl-footer-status">Физика симуляции: Норма</span>
+                <span class="text-emerald-400">● Live Engine</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- TRANSLATIONS DICTIONARY ---
+        const I18N = {
+            ru: {
+                simulated: "СИМУЛЯЦИЯ",
+                price: "ЦЕНА",
+                change24h: "ИЗМ. 24ч",
+                state: "СОСТОЯНИЕ",
+                phases: {
+                    ACCUMULATION: "НАКОПЛЕНИЕ",
+                    BULL_TREND: "БЫЧИЙ ТРЕНД",
+                    BEAR_TREND: "МЕДВЕЖИЙ ТРЕНД",
+                    SWEEP: "СНИТИЕ ЛИКВИДНОСТИ"
+                },
+                presets: {
+                    DYNAMIC: "Динамический цикл (ИИ)",
+                    ACCUMULATION: "Накопление / Флэт",
+                    BULL_TREND: "Бычий тренд",
+                    BEAR_TREND: "Медвежий тренд",
+                    SWEEP: "Снятие ликвидности / Сквиз"
+                },
+                aiAnalyzeBtn: "✨ ИИ Разбор",
+                aiNewsBtn: "📰 ИИ Новость",
+                tabLogs: "🧠 Обучающая лента",
+                tabAI: "🤖 Ментор Gemini ИИ",
+                tabHistory: "📜 История сделок",
+                voiceCoach: "🔊 Голосовой тренер Gemini",
+                accountMargin: "Депозит / Маржа",
+                balance: "БАЛАНС",
+                equity: "СРЕДСТВА",
+                pnl: "НЕРЕАЛИЗ. PNL",
+                winrate: "ВИНРЕЙТ",
+                market: "Маркет",
+                limit: "Лимит",
+                limitPrice: "ЛИМИТНАЯ ЦЕНА",
+                useCurrent: "Текущая",
+                posSize: "РАЗМЕР (BTC)",
+                cost: "Стоимость",
+                leverage: "КРЕДИТНОЕ ПЛЕЧО",
+                sl: "Стоп-лосс (SL)",
+                tp: "Тейк-профит (TP)",
+                buy: "КУПИТЬ / LONG",
+                sell: "ПРОДАТЬ / SHORT",
+                activePos: "Активная позиция",
+                noPos: "Нет открытых позиций",
+                closePos: "Закрыть по рынку",
+                aiPlaceholder: "Задайте вопрос Ментору (SMC, управление рисками, паттерны)...",
+                askAi: "Спросить",
+                noTrades: "Нет закрытых сделок. Откройте ордер для начала торговли.",
+                eduClose: "✕",
+                eduLesson: "💡 Урок:",
+                eduAudioBtn: "🔊 Озвучить",
+                pauseBadge: "Пауза симуляции"
+            },
+            en: {
+                simulated: "SIMULATED",
+                price: "PRICE",
+                change24h: "24h CHANGE",
+                state: "STATE",
+                phases: {
+                    ACCUMULATION: "ACCUMULATION",
+                    BULL_TREND: "BULL MOMENTUM",
+                    BEAR_TREND: "BEAR DOWNTREND",
+                    SWEEP: "LIQUIDITY SWEEP"
+                },
+                presets: {
+                    DYNAMIC: "Dynamic Cycle (AI)",
+                    ACCUMULATION: "Range / Accumulation",
+                    BULL_TREND: "Bullish Momentum",
+                    BEAR_TREND: "Bearish Downtrend",
+                    SWEEP: "Liquidity Sweep / Squeeze"
+                },
+                aiAnalyzeBtn: "✨ AI Analysis",
+                aiNewsBtn: "📰 AI News",
+                tabLogs: "🧠 Educational Feed",
+                tabAI: "🤖 Gemini AI Mentor",
+                tabHistory: "📜 Trade History",
+                voiceCoach: "🔊 Gemini Voice Coach",
+                accountMargin: "Account Margin",
+                balance: "BALANCE",
+                equity: "EQUITY",
+                pnl: "UNREALIZED PNL",
+                winrate: "WIN RATE",
+                market: "Market",
+                limit: "Limit",
+                limitPrice: "LIMIT PRICE",
+                useCurrent: "Use Current",
+                posSize: "POSITION SIZE (BTC)",
+                cost: "Cost",
+                leverage: "LEVERAGE",
+                sl: "Stop Loss (SL)",
+                tp: "Take Profit (TP)",
+                buy: "BUY / LONG",
+                sell: "SELL / SHORT",
+                activePos: "Active Position",
+                noPos: "No open position",
+                closePos: "Close Position Market",
+                aiPlaceholder: "Ask Gemini AI Coach about SMC, risk management...",
+                askAi: "Ask AI",
+                noTrades: "No closed trades yet. Execute market or limit orders to view history.",
+                eduClose: "✕",
+                eduLesson: "💡 Takeaway:",
+                eduAudioBtn: "🔊 Listen",
+                pauseBadge: "Simulation Paused"
+            }
+        };
+
+        const TIMEFRAME_MINUTES = {
+            '1M': 1,
+            '5M': 5,
+            '15M': 15,
+            '1H': 60,
+            '4H': 240,
+            '1D': 1440
+        };
+
+        const STATE = {
+            lang: 'ru',
+            symbol: 'BTC/USDT',
+            timeframe: '5M',
+            currentPrice: 64250.0,
+            targetPrice: 64250.0,
+            start24hPrice: 62700.0,
+            phase: 'ACCUMULATION',
+            isPaused: false,
+            speed: 5,
+            balance: 10000.0,
+            equity: 10000.0,
+            position: null,
+            pendingOrders: [],
+            closedTrades: [],
+            activeTool: 'cursor',
+            drawings: [],
+            isDrawing: false,
+            currentDrawing: null,
+            orderType: 'MARKET',
+            lastEventTime: 0,
+            lastEduText: "",
+            simTime: Date.now()
+        };
+
+        const CANDLE_DATA = {
+            '1M': [], '5M': [], '15M': [], '1H': [], '4H': [], '1D': []
+        };
+
+        // Gemini API Settings
+        const GEMINI_CONFIG = {
+            apiKey: "",
+            textModel: "gemini-3-flash-preview",
+            ttsModel: "gemini-2.5-flash-preview-tts"
+        };
+
+        // --- SYNCHRONIZED MULTI-TIMEFRAME HISTORICAL DATA GENERATOR ---
+        function generateHistoricalData() {
+            const timeframes = ['1M', '5M', '15M', '1H', '4H', '1D'];
+            const now = Date.now();
+            STATE.simTime = now;
+            const basePrice = 64250.0;
+
+            // Step 1: Generate high-resolution 1M base candles (1440 candles = 24 hours)
+            const count1M = 1440;
+            const tfMs1M = 60 * 1000;
+            const base1MCandles = [];
+            let p = basePrice;
+
+            // Generate backwards then reverse so prices match chronologically
+            const raw1M = [];
+            for (let i = count1M; i >= 0; i--) {
+                const candleTime = now - i * tfMs1M;
+                const changePct = (Math.random() - 0.496) * 0.0025;
+                const open = p;
+                const close = Math.max(100, p * (1 + changePct));
+                const high = Math.max(open, close) * (1 + Math.random() * 0.0012);
+                const low = Math.min(open, close) * (1 - Math.random() * 0.0012);
+                const volume = Math.random() * 25 + 5;
+
+                raw1M.push({ time: candleTime, open, high, low, close, volume });
+                p = close;
+            }
+
+            CANDLE_DATA['1M'] = raw1M;
+
+            // Step 2: Aggregate 1M candles into higher timeframes for 100% mathematical synchronization
+            ['5M', '15M', '1H', '4H', '1D'].forEach(tf => {
+                const minutes = TIMEFRAME_MINUTES[tf];
+                const aggregated = [];
+
+                for (let i = 0; i < raw1M.length; i += minutes) {
+                    const chunk = raw1M.slice(i, i + minutes);
+                    if (chunk.length === 0) continue;
+
+                    const open = chunk[0].open;
+                    const close = chunk[chunk.length - 1].close;
+                    const high = Math.max(...chunk.map(c => c.high));
+                    const low = Math.min(...chunk.map(c => c.low));
+                    const volume = chunk.reduce((sum, c) => sum + c.volume, 0);
+                    const time = chunk[0].time;
+
+                    aggregated.push({ time, open, high, low, close, volume });
+                }
+
+                CANDLE_DATA[tf] = aggregated;
+            });
+
+            const last1M = CANDLE_DATA['1M'][CANDLE_DATA['1M'].length - 1];
+            STATE.currentPrice = last1M.close;
+            STATE.targetPrice = STATE.currentPrice;
+            STATE.start24hPrice = CANDLE_DATA['1M'][0].open;
+        }
+
+        generateHistoricalData();
+
+        const canvas = document.getElementById('chartCanvas');
+        const ctx = canvas.getContext('2d');
+        let viewOffset = 0;
+        let zoomLevel = 1.0;
+
+        function resizeCanvas() {
+            const container = document.getElementById('canvas-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            renderChart();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function renderChart() {
+            if (!canvas.width || !canvas.height) return;
+
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Clear Background
+            ctx.fillStyle = '#12151c';
+            ctx.fillRect(0, 0, width, height);
+
+            const candles = CANDLE_DATA[STATE.timeframe] || [];
+            if (candles.length === 0) return;
+
+            // Stable Candle Dimensions & Offset Bounds
+            const candleWidth = Math.max(3, 10 * zoomLevel);
+            const candleGap = Math.max(1, 2 * zoomLevel);
+            const totalCandleSlot = candleWidth + candleGap;
+            const rightMargin = 75;
+
+            const maxOffset = Math.max(0, candles.length - 5);
+            viewOffset = Math.max(0, Math.min(viewOffset, maxOffset));
+
+            const lastIdx = candles.length - 1;
+
+            // Filter Visible Candlesticks
+            const visibleCandles = [];
+            candles.forEach((c, i) => {
+                const x = width - rightMargin - (lastIdx - i + viewOffset) * totalCandleSlot;
+                if (x + candleWidth >= -20 && x <= width) {
+                    visibleCandles.push({ candle: c, x, index: i });
+                }
+            });
+
+            if (visibleCandles.length === 0) return;
+
+            // Y-Axis Range Bounds with Padding
+            let minP = Math.min(...visibleCandles.map(v => v.candle.low));
+            let maxP = Math.max(...visibleCandles.map(v => v.candle.high));
+
+            if (STATE.position) {
+                minP = Math.min(minP, STATE.position.liqPrice || minP, STATE.position.sl || minP);
+                maxP = Math.max(maxP, STATE.position.tp || maxP);
+            }
+
+            STATE.pendingOrders.forEach(po => {
+                minP = Math.min(minP, po.limitPrice);
+                maxP = Math.max(maxP, po.limitPrice);
+            });
+
+            const pPadding = (maxP - minP) * 0.08 || 10;
+            minP -= pPadding;
+            maxP += pPadding;
+
+            const priceToY = (price) => height - 30 - ((price - minP) / (maxP - minP)) * (height - 60);
+
+            // Draw Gridlines
+            ctx.strokeStyle = '#1e2433';
+            ctx.lineWidth = 1;
+            const steps = 6;
+            for (let i = 0; i <= steps; i++) {
+                const priceVal = minP + (maxP - minP) * (i / steps);
+                const y = priceToY(priceVal);
+
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillText(`$${priceVal.toFixed(1)}`, width - 65, y - 3);
+            }
+
+            // Render Candlesticks & Volume
+            const maxVol = Math.max(...visibleCandles.map(v => v.candle.volume));
+            visibleCandles.forEach(({ candle: c, x }) => {
+                const isGreen = c.close >= c.open;
+                const color = isGreen ? '#10b981' : '#f43f5e';
+
+                // Volume Bar
+                const volH = (c.volume / (maxVol || 1)) * 40;
+                ctx.fillStyle = isGreen ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)';
+                ctx.fillRect(x, height - 30 - volH, candleWidth, volH);
+
+                // Wick
+                const highY = priceToY(c.high);
+                const lowY = priceToY(c.low);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(x + candleWidth / 2, highY);
+                ctx.lineTo(x + candleWidth / 2, lowY);
+                ctx.stroke();
+
+                // Candle Body
+                const openY = priceToY(c.open);
+                const closeY = priceToY(c.close);
+                const bodyY = Math.min(openY, closeY);
+                const bodyH = Math.max(1.5, Math.abs(closeY - openY));
+
+                ctx.fillStyle = color;
+                ctx.fillRect(x, bodyY, candleWidth, bodyH);
+            });
+
+            // Draw Pending Limit Orders
+            STATE.pendingOrders.forEach(po => {
+                const y = priceToY(po.limitPrice);
+                ctx.strokeStyle = po.type === 'LONG' ? '#eab308' : '#f97316';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([6, 4]);
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.fillStyle = po.type === 'LONG' ? '#eab308' : '#f97316';
+                ctx.fillRect(10, y - 9, 150, 18);
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 9px JetBrains Mono';
+                ctx.fillText(`LIMIT ${po.type} ${po.size} BTC @ $${po.limitPrice.toFixed(1)}`, 14, y + 3);
+            });
+
+            // Draw Active Position Overlays
+            if (STATE.position) {
+                drawPositionOverlays(priceToY, width, height);
+            }
+
+            // Draw User Drawings
+            drawUserElements(priceToY);
+
+            // Current Price Line
+            const currY = priceToY(STATE.currentPrice);
+            ctx.strokeStyle = '#3b82f6';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(0, currY);
+            ctx.lineTo(width, currY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Current Price Tag
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(width - 70, currY - 9, 65, 18);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 10px JetBrains Mono';
+            ctx.fillText(`$${STATE.currentPrice.toFixed(1)}`, width - 66, currY + 3);
+
+            // Update Header Legend
+            const lastC = candles[candles.length - 1];
+            if (lastC) {
+                document.getElementById('legend-open').innerText = lastC.open.toFixed(1);
+                document.getElementById('legend-high').innerText = lastC.high.toFixed(1);
+                document.getElementById('legend-low').innerText = lastC.low.toFixed(1);
+                document.getElementById('legend-close').innerText = lastC.close.toFixed(1);
+                document.getElementById('legend-vol').innerText = `${lastC.volume.toFixed(1)} BTC`;
+
+                document.getElementById('header-price').innerText = `$${STATE.currentPrice.toFixed(2)}`;
+                const chg = ((STATE.currentPrice - STATE.start24hPrice) / STATE.start24hPrice) * 100;
+                const chgEl = document.getElementById('header-change');
+                chgEl.innerText = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`;
+                chgEl.className = chg >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+            }
+        }
+
+        function drawPositionOverlays(priceToY, width, height) {
+            const pos = STATE.position;
+            if (!pos) return;
+
+            const entryY = priceToY(pos.entryPrice);
+            const liqY = priceToY(pos.liqPrice);
+
+            // Liquidation Danger Shading Area
+            ctx.fillStyle = 'rgba(244, 63, 94, 0.12)';
+            if (pos.type === 'LONG') {
+                ctx.fillRect(0, liqY, width, height - liqY);
+            } else {
+                ctx.fillRect(0, 0, width, liqY);
+            }
+
+            // Liquidation Line
+            ctx.strokeStyle = '#f43f5e';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath();
+            ctx.moveTo(0, liqY);
+            ctx.lineTo(width, liqY);
+            ctx.stroke();
+            ctx.fillStyle = '#f43f5e';
+            ctx.font = '9px JetBrains Mono';
+            ctx.fillText(`LIQ: $${pos.liqPrice.toFixed(1)}`, 10, liqY - 4);
+
+            // Entry Line
+            ctx.strokeStyle = pos.type === 'LONG' ? '#10b981' : '#f43f5e';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(0, entryY);
+            ctx.lineTo(width, entryY);
+            ctx.stroke();
+
+            // Entry Badge
+            ctx.fillStyle = pos.type === 'LONG' ? '#10b981' : '#f43f5e';
+            ctx.fillRect(10, entryY - 10, 110, 20);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 10px JetBrains Mono';
+            ctx.fillText(`${pos.type} ${pos.size} BTC @ $${pos.entryPrice.toFixed(1)}`, 14, entryY + 4);
+
+            // Stop Loss Line
+            if (pos.sl) {
+                const slY = priceToY(pos.sl);
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([5, 3]);
+                ctx.beginPath();
+                ctx.moveTo(0, slY);
+                ctx.lineTo(width, slY);
+                ctx.stroke();
+                ctx.fillStyle = '#ef4444';
+                ctx.fillText(`SL: $${pos.sl.toFixed(1)}`, width - 120, slY - 3);
+            }
+
+            // Take Profit Line
+            if (pos.tp) {
+                const tpY = priceToY(pos.tp);
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([5, 3]);
+                ctx.beginPath();
+                ctx.moveTo(0, tpY);
+                ctx.lineTo(width, tpY);
+                ctx.stroke();
+                ctx.fillStyle = '#10b981';
+                ctx.fillText(`TP: $${pos.tp.toFixed(1)}`, width - 120, tpY - 3);
+            }
+            ctx.setLineDash([]);
+        }
+
+        function drawUserElements(priceToY) {
+            const allDrawings = [...STATE.drawings];
+            if (STATE.currentDrawing) allDrawings.push(STATE.currentDrawing);
+
+            allDrawings.forEach(d => {
+                ctx.strokeStyle = d.color || '#3b82f6';
+                ctx.fillStyle = d.color || 'rgba(59, 130, 246, 0.15)';
+                ctx.lineWidth = 2;
+
+                if (d.type === 'horizontal') {
+                    const y = priceToY(d.price);
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+
+                    // Price Tag Label
+                    ctx.fillStyle = '#3b82f6';
+                    ctx.fillRect(10, y - 8, 70, 16);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 9px JetBrains Mono';
+                    ctx.fillText(`$${d.price.toFixed(1)}`, 14, y + 4);
+                } else if (d.type === 'trendline') {
+                    const y1 = priceToY(d.price1);
+                    const y2 = priceToY(d.price2);
+                    ctx.beginPath();
+                    ctx.moveTo(d.x1, y1);
+                    ctx.lineTo(d.x2, y2);
+                    ctx.stroke();
+                } else if (d.type === 'rectangle') {
+                    const y1 = priceToY(d.price1);
+                    const y2 = priceToY(d.price2);
+                    const top = Math.min(y1, y2);
+                    const h = Math.abs(y2 - y1);
+                    const w = d.x2 - d.x1;
+
+                    // Translucent fill for clear chart visibility underneath
+                    ctx.fillStyle = 'rgba(59, 130, 246, 0.15)';
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.lineWidth = 1.5;
+                    ctx.fillRect(d.x1, top, w, h);
+                    ctx.strokeRect(d.x1, top, w, h);
+                } else if (d.type === 'ruler') {
+                    const y1 = priceToY(d.price1);
+                    const y2 = priceToY(d.price2);
+                    const top = Math.min(y1, y2);
+                    const h = Math.abs(y2 - y1);
+                    const w = d.x2 - d.x1;
+
+                    ctx.fillStyle = d.price2 >= d.price1 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)';
+                    ctx.strokeStyle = d.price2 >= d.price1 ? '#10b981' : '#f43f5e';
+                    ctx.fillRect(d.x1, top, w, h);
+                    ctx.strokeRect(d.x1, top, w, h);
+
+                    // Measurement Badge
+                    const diffPrice = d.price2 - d.price1;
+                    const pct = (diffPrice / d.price1) * 100;
+                    const badgeText = `${diffPrice >= 0 ? '+' : ''}$${diffPrice.toFixed(1)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`;
+
+                    const badgeX = d.x1 + w / 2 - 50;
+                    const badgeY = top + h / 2 - 10;
+                    ctx.fillStyle = '#181c27';
+                    ctx.fillRect(badgeX, badgeY, 110, 20);
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.strokeRect(badgeX, badgeY, 110, 20);
+
+                    ctx.fillStyle = pct >= 0 ? '#10b981' : '#f43f5e';
+                    ctx.font = 'bold 9px JetBrains Mono';
+                    ctx.fillText(badgeText, badgeX + 6, badgeY + 13);
+                }
+            });
+        }
+        function checkPendingOrders() {
+            if (STATE.pendingOrders.length === 0) return;
+
+            for (let i = STATE.pendingOrders.length - 1; i >= 0; i--) {
+                const order = STATE.pendingOrders[i];
+                let triggered = false;
+
+                if (order.type === 'LONG' && STATE.currentPrice <= order.limitPrice) {
+                    triggered = true;
+                } else if (order.type === 'SHORT' && STATE.currentPrice >= order.limitPrice) {
+                    triggered = true;
+                }
+
+                if (triggered) {
+                    if (STATE.position) {
+                        logMarketEvent(STATE.lang === 'ru' 
+                            ? `⚠️ Лимитный ордер отменен: уже есть открытая позиция!` 
+                            : `⚠️ Limit order skipped: position already open!`);
+                        STATE.pendingOrders.splice(i, 1);
+                        renderPositionCard();
+                        continue;
+                    }
+
+                    const entryPrice = order.limitPrice;
+                    const liqPrice = order.type === 'LONG' 
+                        ? entryPrice * (1 - 1 / order.leverage * 0.9) 
+                        : entryPrice * (1 + 1 / order.leverage * 0.9);
+
+                    STATE.position = {
+                        type: order.type,
+                        entryPrice,
+                        size: order.size,
+                        leverage: order.leverage,
+                        sl: order.sl,
+                        tp: order.tp,
+                        liqPrice,
+                        pnl: 0
+                    };
+
+                    STATE.pendingOrders.splice(i, 1);
+                    renderPositionCard();
+                    logMarketEvent(`🎯 Лимитный ордер исполнен! ${order.type} ${order.size} BTC @ $${entryPrice.toFixed(1)}`);
+                }
+            }
+        }
+
+        // --- UNIFIED MULTI-TIMEFRAME PHYSICS TICK ---
+        function updatePhysicsTick() {
+            if (STATE.isPaused) return;
+
+            // Controlled step logic to prevent single-candle hyper jumps
+            if (Math.abs(STATE.targetPrice - STATE.currentPrice) > 0.05) {
+                const diff = STATE.targetPrice - STATE.currentPrice;
+                const maxStep = STATE.currentPrice * 0.0012;
+                const step = Math.sign(diff) * Math.min(Math.abs(diff), maxStep);
+                STATE.currentPrice += step;
+            } else {
+                // Organic Random Walk
+                let drift = 0;
+                if (STATE.phase === 'BULL_TREND') drift = 0.00025;
+                else if (STATE.phase === 'BEAR_TREND') drift = -0.00025;
+                else drift = (Math.random() - 0.5) * 0.00008;
+
+                const volatility = 0.0006;
+                const noise = (Math.random() - 0.5) * 2 * volatility;
+                const pctChange = drift + noise;
+
+                STATE.currentPrice *= (1 + pctChange);
+                STATE.targetPrice = STATE.currentPrice;
+            }
+
+            // Advance simulated time (6 seconds per tick)
+            STATE.simTime += 6000;
+
+            // Update candles across ALL timeframes
+            Object.keys(TIMEFRAME_MINUTES).forEach(tf => {
+                const minutes = TIMEFRAME_MINUTES[tf];
+                const tfMs = minutes * 60 * 1000;
+                const list = CANDLE_DATA[tf];
+
+                if (list && list.length > 0) {
+                    const currentCandle = list[list.length - 1];
+
+                    if (STATE.simTime - currentCandle.time >= tfMs) {
+                        list.push({
+                            time: currentCandle.time + tfMs,
+                            open: STATE.currentPrice,
+                            high: STATE.currentPrice,
+                            low: STATE.currentPrice,
+                            close: STATE.currentPrice,
+                            volume: 1.0
+                        });
+                        if (list.length > 200) list.shift();
+                    } else {
+                        currentCandle.close = STATE.currentPrice;
+                        currentCandle.high = Math.max(currentCandle.high, STATE.currentPrice);
+                        currentCandle.low = Math.min(currentCandle.low, STATE.currentPrice);
+                        currentCandle.volume += Math.random() * 0.3 * (minutes / 5);
+                    }
+                }
+            });
+
+            // Check Pending Limit Orders
+            checkPendingOrders();
+
+            // Check Educational Market Events
+            checkMarketEvents();
+
+            // Check Trade SL/TP/Liquidation
+            updatePositions();
+
+            renderChart();
+        }
+
+        function checkMarketEvents() {
+            const candles = CANDLE_DATA[STATE.timeframe] || [];
+            if (candles.length < 15) return;
+
+            const now = Date.now();
+            if (now - STATE.lastEventTime < 15000) return; // 15-second popup cooldown
+
+            const len = candles.length;
+            const last = candles[len - 1];
+            const recent = candles.slice(len - 15, len - 1);
+
+            const maxHigh = Math.max(...recent.map(c => c.high));
+            const minLow = Math.min(...recent.map(c => c.low));
+
+            // Event 1: Liquidity Sweep High (Stop Hunt)
+            if (last.high > maxHigh && last.close < maxHigh) {
+                triggerEduCard('LIQUIDITY_SWEEP_HIGH', maxHigh);
+                STATE.lastEventTime = now;
+                return;
+            }
+
+            // Event 2: Liquidity Sweep Low (Stop Hunt)
+            if (last.low < minLow && last.close > minLow) {
+                triggerEduCard('LIQUIDITY_SWEEP_LOW', minLow);
+                STATE.lastEventTime = now;
+                return;
+            }
+
+            // Event 3: Bullish Break of Structure (BOS)
+            if (last.close > maxHigh * 1.0015) {
+                triggerEduCard('BOS_BULLISH', maxHigh);
+                STATE.lastEventTime = now;
+                return;
+            }
+
+            // Event 4: Bearish Break of Structure (BOS)
+            if (last.close < minLow * 0.9985) {
+                triggerEduCard('BOS_BEARISH', minLow);
+                STATE.lastEventTime = now;
+                return;
+            }
+        }
+
+        function triggerEduCard(eventType, priceLevel) {
+            const isRu = STATE.lang === 'ru';
+            let tag = "", title = "", desc = "", takeaway = "";
+
+            if (eventType === 'LIQUIDITY_SWEEP_HIGH') {
+                tag = isRu ? "СНИТИЕ ЛИКВИДНОСТИ (HIGH)" : "LIQUIDITY SWEEP (HIGH)";
+                title = isRu ? "Исполнен манипулятивный захват стопов продавцов" : "Bearish Stop-Hunt Sweep Executed";
+                desc = isRu ? `Цена импульсивно зашла выше уровня $${priceLevel.toFixed(1)}, активировав стоп-лоссы шортистов. Киты использовали эти заявки для входа в Short.` : `Price briefly pushed above $${priceLevel.toFixed(1)} to trigger buy-stops before reversing. Institutional entities filled sell liquidity.`;
+                takeaway = isRu ? "Избегайте входа в затяжной лонг на самых пиках после пробоя." : "Avoid chasing breakouts right into obvious resistance levels.";
+            } else if (eventType === 'LIQUIDITY_SWEEP_LOW') {
+                tag = isRu ? "СНИТИЕ ЛИКВИДНОСТИ (LOW)" : "LIQUIDITY SWEEP (LOW)";
+                title = isRu ? "Сбор ликвидности под уровнем поддержки" : "Bullish Liquidity Sweep Executed";
+                desc = isRu ? `Цена продавила уровень $${priceLevel.toFixed(1)}, заставив ритейл продавать на панике. Маркет-мейкер выкупил этот объем.` : `Smart Money pushed price below equal lows at $${priceLevel.toFixed(1)} to absorb panic sell orders into huge long positions.`;
+                takeaway = isRu ? "Не ставьте стоп-лосс ровно под очевидным минимумом." : "Do not place tight stop losses directly under obvious support.";
+            } else if (eventType === 'BOS_BULLISH') {
+                tag = isRu ? "ПРОБОЙ СТРУКТУРЫ (BOS)" : "BREAK OF STRUCTURE (BOS)";
+                title = isRu ? "Бычье подтверждение тренда" : "Bullish Market Structure Break";
+                desc = isRu ? `Цена закрепилась выше ключевого максимума $${priceLevel.toFixed(1)}. Структура рынка сменилась на восходящую.` : `Price firmly closed above $${priceLevel.toFixed(1)}, confirming higher-high structure and institutional momentum.`;
+                takeaway = isRu ? "Ищите точки входа на откате (Ордерблок) в сторону нового тренда." : "Wait for a pullback to mitigation zones before entering long.";
+            } else if (eventType === 'BOS_BEARISH') {
+                tag = isRu ? "СМЕНА СТРУКТУРЫ (BOS)" : "BEARISH STRUCTURE BREAK";
+                title = isRu ? "Пробой поддержки и медвежий импульс" : "Bearish Market Structure Break";
+                desc = isRu ? `Цена пробила минимум $${priceLevel.toFixed(1)}, подтверждая доминирование продавцов.` : `Price broke below support $${priceLevel.toFixed(1)}, signaling strong selling pressure.`;
+                takeaway = isRu ? "Не пытайтесь ловить падающий нож без образования базы." : "Never counter-trend trade against a confirmed bearish BOS.";
+            }
+
+            document.getElementById('edu-tag').innerText = tag;
+            document.getElementById('edu-title').innerText = title;
+            document.getElementById('edu-desc').innerText = desc;
+            document.getElementById('edu-takeaway').innerText = takeaway;
+            document.getElementById('edu-time').innerText = new Date().toLocaleTimeString();
+
+            const card = document.getElementById('edu-card');
+            card.classList.remove('hidden');
+
+            STATE.lastEduText = `${title}. ${takeaway}`;
+
+            // AUTO-PAUSE SIMULATION ON POPUP
+            setPausedState(true);
+
+            // Add to Log Feed
+            logMarketEvent(`💡 [${tag}] ${title} ($${priceLevel.toFixed(1)})`);
+
+            // Audio Voiceover
+            speakAIText(STATE.lastEduText);
+        }
+
+        function setPausedState(pause) {
+            STATE.isPaused = pause;
+            const btnPause = document.getElementById('btn-pause');
+            const btnPlay = document.getElementById('btn-play');
+
+            if (pause) {
+                btnPause.classList.add('bg-blue-600', 'text-white');
+                btnPause.classList.remove('bg-gray-800', 'text-gray-200');
+                btnPlay.classList.remove('bg-blue-600', 'text-white');
+                btnPlay.classList.add('bg-gray-800', 'text-gray-200');
+            } else {
+                btnPlay.classList.add('bg-blue-600', 'text-white');
+                btnPlay.classList.remove('bg-gray-800', 'text-gray-200');
+                btnPause.classList.remove('bg-blue-600', 'text-white');
+                btnPause.classList.add('bg-gray-800', 'text-gray-200');
+            }
+        }
+
+        function logMarketEvent(msg) {
+            const feed = document.getElementById('tab-logs');
+            const timeStr = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = "text-gray-300 border-b border-[#262c3d] pb-1";
+            div.innerHTML = `<span class="text-blue-400 font-bold">[${timeStr}]</span> ${msg}`;
+            feed.prepend(div);
+        }
+
+        function updatePositions() {
+            if (!STATE.position) return;
+
+            const pos = STATE.position;
+            const price = STATE.currentPrice;
+
+            let rawPnl = 0;
+            if (pos.type === 'LONG') {
+                rawPnl = (price - pos.entryPrice) * pos.size;
+            } else {
+                rawPnl = (pos.entryPrice - price) * pos.size;
+            }
+
+            pos.pnl = rawPnl;
+            STATE.equity = STATE.balance + pos.pnl;
+
+            // Update UI Card
+            document.getElementById('account-equity').innerText = `$${STATE.equity.toFixed(2)}`;
+            const pnlPct = (pos.pnl / (pos.entryPrice * pos.size / pos.leverage)) * 100;
+            const pnlEl = document.getElementById('account-pnl');
+            pnlEl.innerText = `$${pos.pnl.toFixed(2)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)`;
+            pnlEl.className = pos.pnl >= 0 ? 'font-bold text-emerald-400' : 'font-bold text-rose-400';
+
+            // Check Liquidation
+            if ((pos.type === 'LONG' && price <= pos.liqPrice) || (pos.type === 'SHORT' && price >= pos.liqPrice)) {
+                closePosition('LIQUIDATED');
+                return;
+            }
+
+            // Check Stop Loss
+            if (pos.sl) {
+                if ((pos.type === 'LONG' && price <= pos.sl) || (pos.type === 'SHORT' && price >= pos.sl)) {
+                    closePosition('STOP_LOSS');
+                    return;
+                }
+            }
+
+            // Check Take Profit
+            if (pos.tp) {
+                if ((pos.type === 'LONG' && price >= pos.tp) || (pos.type === 'SHORT' && price <= pos.tp)) {
+                    closePosition('TAKE_PROFIT');
+                    return;
+                }
+            }
+        }
+
+        function executeOrder(type) {
+            if (STATE.position) {
+                alert(STATE.lang === 'ru' ? 'У вас уже есть открытая позиция!' : 'You already have an active position!');
+                return;
+            }
+
+            const size = parseFloat(document.getElementById('input-position-size').value) || 0.1;
+            const leverage = parseInt(document.getElementById('leverage-slider').value) || 10;
+            const checkSL = document.getElementById('check-sl').checked;
+            const checkTP = document.getElementById('check-tp').checked;
+            const slPrice = checkSL ? parseFloat(document.getElementById('input-sl-price').value) : null;
+            const tpPrice = checkTP ? parseFloat(document.getElementById('input-tp-price').value) : null;
+
+            if (STATE.orderType === 'LIMIT') {
+                const limitPrice = parseFloat(document.getElementById('input-limit-price').value);
+                if (!limitPrice || isNaN(limitPrice) || limitPrice <= 0) {
+                    alert(STATE.lang === 'ru' ? 'Введите корректную лимитную цену!' : 'Enter a valid limit price!');
+                    return;
+                }
+
+                const marginRequired = (limitPrice * size) / leverage;
+                if (marginRequired > STATE.balance) {
+                    alert(STATE.lang === 'ru' ? 'Недостаточно депозита для этой лимитной заявки!' : 'Insufficient balance for this limit order!');
+                    return;
+                }
+
+                STATE.pendingOrders.push({
+                    id: Date.now(),
+                    type,
+                    limitPrice,
+                    size,
+                    leverage,
+                    sl: slPrice,
+                    tp: tpPrice
+                });
+
+                renderPositionCard();
+                renderChart();
+                logMarketEvent(`⏳ Лимитный ордер ${type} выставлен: ${size} BTC @ $${limitPrice.toFixed(1)} (${leverage}x)`);
+                return;
+            }
+
+            const entryPrice = STATE.currentPrice;
+            const marginRequired = (entryPrice * size) / leverage;
+            if (marginRequired > STATE.balance) {
+                alert(STATE.lang === 'ru' ? 'Недостаточно депозита для такой сделки!' : 'Insufficient balance for this margin!');
+                return;
+            }
+
+            const liqPrice = type === 'LONG' ? entryPrice * (1 - 1 / leverage * 0.9) : entryPrice * (1 + 1 / leverage * 0.9);
+
+            STATE.position = {
+                type,
+                entryPrice,
+                size,
+                leverage,
+                sl: slPrice,
+                tp: tpPrice,
+                liqPrice,
+                pnl: 0
+            };
+
+            renderPositionCard();
+            logMarketEvent(`🚀 ${type} Маркет-ордер открыт: ${size} BTC @ $${entryPrice.toFixed(1)} (${leverage}x)`);
+        }
+
+        function cancelPendingOrder(id) {
+            STATE.pendingOrders = STATE.pendingOrders.filter(o => o.id !== id);
+            renderPositionCard();
+            renderChart();
+            logMarketEvent(STATE.lang === 'ru' ? '❌ Лимитный ордер отменен' : '❌ Limit order canceled');
+        }
+
+        function renderPositionCard() {
+            const card = document.getElementById('pos-details');
+            const btnClose = document.getElementById('btn-close-position');
+            const badge = document.getElementById('pos-badge');
+
+            let html = '';
+
+            // 1. Pending Limit Orders List
+            if (STATE.pendingOrders.length > 0) {
+                html += `<div class="border-b border-[#262c3d] pb-1.5 mb-1.5 space-y-1">
+                    <div class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Открытые Лимитники (${STATE.pendingOrders.length})</div>`;
+                STATE.pendingOrders.forEach(po => {
+                    html += `
+                        <div class="flex items-center justify-between bg-[#181c27] p-1 rounded text-[10px]">
+                            <span class="${po.type === 'LONG' ? 'text-emerald-400' : 'text-rose-400'} font-bold">${po.type} @ $${po.limitPrice.toFixed(1)}</span>
+                            <div class="flex items-center space-x-1">
+                                <span>${po.size} BTC</span>
+                                <button onclick="cancelPendingOrder(${po.id})" class="text-rose-400 hover:text-rose-200 font-bold px-1">✕</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            if (!STATE.position) {
+                badge.innerText = I18N[STATE.lang].noPos.toUpperCase();
+                badge.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-800 text-gray-400";
+                html += `<div class="text-center py-2 text-gray-500 italic">${I18N[STATE.lang].noPos}</div>`;
+                card.innerHTML = html;
+                btnClose.classList.add('hidden');
+                return;
+            }
+
+            const pos = STATE.position;
+            badge.innerText = pos.type;
+            badge.className = pos.type === 'LONG' ? "px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800" : "px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800";
+
+            html += `
+                <div class="flex justify-between"><span>Вход:</span><span class="text-white">$${pos.entryPrice.toFixed(1)}</span></div>
+                <div class="flex justify-between"><span>Объем:</span><span class="text-white">${pos.size} BTC (${pos.leverage}x)</span></div>
+                <div class="flex justify-between"><span>Ликвидация:</span><span class="text-rose-400">$${pos.liqPrice.toFixed(1)}</span></div>
+            `;
+            card.innerHTML = html;
+            btnClose.classList.remove('hidden');
+        }
+
+        function updateAccountStats() {
+            document.getElementById('account-balance').innerText = `$${STATE.balance.toFixed(2)}`;
+            document.getElementById('account-equity').innerText = `$${STATE.balance.toFixed(2)}`;
+
+            const wins = STATE.closedTrades.filter(t => t.pnl > 0).length;
+            const total = STATE.closedTrades.length;
+            const wr = total > 0 ? Math.round((wins / total) * 100) : 0;
+            document.getElementById('account-winrate').innerText = `${wr}% (${wins}/${total})`;
+
+            const tbody = document.getElementById('trade-history-rows');
+            if (total === 0) return;
+
+            tbody.innerHTML = STATE.closedTrades.slice().reverse().map(t => `
+                <tr class="hover:bg-[#1f2636]">
+                    <td class="p-1.5 font-bold ${t.type === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}">${t.type}</td>
+                    <td class="p-1.5">$${t.entryPrice.toFixed(1)}</td>
+                    <td class="p-1.5">$${t.exitPrice.toFixed(1)}</td>
+                    <td class="p-1.5">${t.size}</td>
+                    <td class="p-1.5">${t.leverage}x</td>
+                    <td class="p-1.5 font-bold ${t.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">$${t.pnl.toFixed(2)}</td>
+                    <td class="p-1.5 text-[10px] text-gray-400">${t.reason}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function fetchWithBackoff(url, payload, maxRetries = 2) {
+            let delay = 1000;
+            for (let i = 0; i <= maxRetries; i++) {
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) throw new Error(`API Error: ${res.status}`);
+                    return await res.json();
+                } catch (err) {
+                    if (i === maxRetries) throw err;
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        function pcmToWav(pcm16, sampleRate) {
+            const buffer = new ArrayBuffer(44 + pcm16.length * 2);
+            const view = new DataView(buffer);
+            const writeStr = (v, o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+
+            writeStr(view, 0, 'RIFF');
+            view.setUint32(4, 36 + pcm16.length * 2, true);
+            writeStr(view, 8, 'WAVE');
+            writeStr(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeStr(view, 36, 'data');
+            view.setUint32(40, pcm16.length * 2, true);
+
+            for (let i = 0; i < pcm16.length; i++) {
+                view.setInt16(44 + i * 2, pcm16[i], true);
+            }
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        // Track user interaction to conform with browser autoplay policy
+        let userHasInteracted = false;
+        const markUserInteraction = () => { userHasInteracted = true; };
+        ['click', 'keydown', 'touchstart', 'pointerdown'].forEach(evt => {
+            window.addEventListener(evt, markUserInteraction, { capture: true, passive: true });
+        });
+
+        async function speakAIText(text) {
+            const toggle = document.getElementById('toggle-tts-audio');
+            if (!toggle || !toggle.checked || !text || !userHasInteracted) return;
+
+            const cleanText = text.replace(/[*_#`]/g, '').slice(0, 250);
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.ttsModel}:generateContent?key=${GEMINI_CONFIG.apiKey}`;
+            const promptLang = STATE.lang === 'ru' ? `Скажи четким тоном финансового тренера: ${cleanText}` : `Say cheerfully in clear trading voice: ${cleanText}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: promptLang }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } }
+                }
+            };
+
+            try {
+                const data = await fetchWithBackoff(url, payload);
+                const part = data?.candidates?.[0]?.content?.parts?.[0];
+                const base64Audio = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType;
+
+                if (base64Audio && mimeType) {
+                    const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)?.[1] || 24000, 10);
+                    const binary = window.atob(base64Audio);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    const pcm16 = new Int16Array(bytes.buffer);
+
+                    const wavBlob = pcmToWav(pcm16, sampleRate);
+                    const audio = new Audio(URL.createObjectURL(wavBlob));
+                    audio.play().catch(err => {
+                        console.warn('Audio playback prevented by autoplay policy until user interacts:', err);
+                    });
+                }
+            } catch (e) {
+                console.warn('TTS playback issue:', e);
+            }
+        }
+
+        async function runGeminiChartAnalysis() {
+            const respArea = document.getElementById('ai-response-area');
+            switchToAITab();
+
+            respArea.innerHTML = `
+                <div class="flex items-center space-x-2 text-purple-400 animate-pulse py-4 justify-center">
+                    <span>✨ Gemini ИИ анализирует структуру рынка, зоны ликвидности и риск...</span>
+                </div>
+            `;
+
+            const sysPrompt = STATE.lang === 'ru' 
+                ? "Ты топовый ментор по Smart Money Concepts (SMC) и криптовалютному трейдингу. Дай краткий, структурированный разбор рынка на русском языке."
+                : "You are an elite SMC crypto mentor. Provide a short structured market report in English.";
+
+            const userPrompt = `Контекст графика:
+            - Символ: ${STATE.symbol} (${STATE.timeframe})
+            - Текущая цена: $${STATE.currentPrice.toFixed(1)}
+            - Фаза рынка: ${STATE.phase}
+            - Открытая позиция: ${JSON.stringify(STATE.position)}
+            - Депозит: $${STATE.balance.toFixed(2)}
+
+            Формат ответа (HTML):
+            1. <strong>Структура и SMC Сетап:</strong> (Определи уровни, ликвидность, ордерблок)
+            2. <strong>Рекомендация:</strong> (Long, Short или Ожидание, цели SL/TP)
+            3. <strong>Риск-менеджмент:</strong> (Оценка плеча и зоны ликвидации)`;
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.textModel}:generateContent?key=${GEMINI_CONFIG.apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }],
+                systemInstruction: { parts: [{ text: sysPrompt }] }
+            };
+
+            try {
+                const data = await fetchWithBackoff(url, payload);
+                const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Не удалось получить ответ.";
+
+                respArea.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-[#262c3d] pb-1.5 mb-2">
+                        <span class="font-bold text-purple-400">✨ Аналитический отчет Gemini ИИ</span>
+                        <button onclick="speakAIText(document.getElementById('ai-report-body').innerText)" class="text-[10px] bg-purple-950 text-purple-300 px-2 py-0.5 rounded border border-purple-800">🔊 Озвучить</button>
+                    </div>
+                    <div id="ai-report-body" class="space-y-1.5 text-xs text-gray-200 leading-relaxed">${reply}</div>
+                `;
+
+                speakAIText(reply.replace(/<[^>]*>/g, '').slice(0, 180));
+            } catch (err) {
+                respArea.innerHTML = `<div class="text-rose-400">Ошибка взаимодействия с Gemini: ${err.message}</div>`;
+            }
+        }
+
+        async function runGeminiNewsEvent() {
+            logMarketEvent(STATE.lang === 'ru' ? '📰 Генерация макроэкономической новости Gemini ИИ...' : '📰 Generating breaking AI news event...');
+
+            const prompt = `Generate realistic crypto market breaking news in JSON:
+            headline: string (5-8 words)
+            description: string (2 short sentences)
+            impactType: "BULLISH_PUMP" | "BEAR_DUMP" | "LIQUIDITY_SQUEEZE"
+            priceChangePercent: number (-5.0 to +5.0)
+            takeaway: string (educational lesson)
+            Language: ${STATE.lang === 'ru' ? 'Russian' : 'English'}`;
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.textModel}:generateContent?key=${GEMINI_CONFIG.apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            headline: { type: "STRING" },
+                            description: { type: "STRING" },
+                            impactType: { type: "STRING" },
+                            priceChangePercent: { type: "NUMBER" },
+                            takeaway: { type: "STRING" }
+                        },
+                        required: ["headline", "description", "impactType", "priceChangePercent", "takeaway"]
+                    }
+                }
+            };
+
+            try {
+                const data = await fetchWithBackoff(url, payload);
+                const jsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!jsonText) return;
+
+                const news = JSON.parse(jsonText);
+                STATE.targetPrice = STATE.currentPrice * (1 + news.priceChangePercent / 100);
+
+                document.getElementById('edu-tag').innerText = `NEWS: ${news.impactType}`;
+                document.getElementById('edu-title').innerText = news.headline;
+                document.getElementById('edu-desc').innerText = news.description;
+                document.getElementById('edu-takeaway').innerText = news.takeaway;
+                document.getElementById('edu-time').innerText = new Date().toLocaleTimeString();
+
+                document.getElementById('edu-card').classList.remove('hidden');
+
+                // AUTO PAUSE ON NEWS POPUP
+                setPausedState(true);
+
+                logMarketEvent(`⚡ НОВОСТЬ: ${news.headline} (${news.priceChangePercent > 0 ? '+' : ''}${news.priceChangePercent.toFixed(1)}%)`);
+
+                speakAIText(`${news.headline}. ${news.takeaway}`);
+            } catch (err) {
+                console.error("News Generation Error:", err);
+            }
+        }
+
+        function switchToAITab() {
+            document.getElementById('tab-logs').classList.add('hidden');
+            document.getElementById('tab-history').classList.add('hidden');
+            document.getElementById('tab-ai').classList.remove('hidden');
+
+            document.getElementById('tab-btn-ai').className = 'py-1.5 border-b-2 border-purple-500 text-purple-400 font-semibold text-xs flex items-center space-x-1';
+            document.getElementById('tab-btn-logs').className = 'py-1.5 border-b-2 border-transparent text-gray-400 hover:text-gray-200 text-xs';
+            document.getElementById('tab-btn-history').className = 'py-1.5 border-b-2 border-transparent text-gray-400 hover:text-gray-200 text-xs';
+        }
+
+        // Language Switcher Function
+        function setLanguage(lang) {
+            STATE.lang = lang;
+            const dict = I18N[lang];
+
+            document.getElementById('lang-ru').className = lang === 'ru' ? 'px-2 py-0.5 rounded bg-blue-600 text-white' : 'px-2 py-0.5 rounded text-gray-400 hover:text-white';
+            document.getElementById('lang-en').className = lang === 'en' ? 'px-2 py-0.5 rounded bg-blue-600 text-white' : 'px-2 py-0.5 rounded text-gray-400 hover:text-white';
+
+            document.getElementById('label-simulated').innerText = dict.simulated;
+            document.getElementById('lbl-header-price').innerText = dict.price;
+            document.getElementById('lbl-header-change').innerText = dict.change24h;
+            document.getElementById('lbl-header-state').innerText = dict.state;
+            document.getElementById('header-state').innerText = dict.phases[STATE.phase] || STATE.phase;
+
+            const select = document.getElementById('preset-phase-select');
+            select.options[0].text = dict.presets.DYNAMIC;
+            select.options[1].text = dict.presets.ACCUMULATION;
+            select.options[2].text = dict.presets.BULL_TREND;
+            select.options[3].text = dict.presets.BEAR_TREND;
+            select.options[4].text = dict.presets.SWEEP;
+
+            document.getElementById('btn-text-ai-analyze').innerText = dict.aiAnalyzeBtn;
+            document.getElementById('btn-text-ai-news').innerText = dict.aiNewsBtn;
+            document.getElementById('tab-btn-logs').innerText = dict.tabLogs;
+            document.getElementById('tab-btn-ai').innerHTML = `<span>🤖 ${dict.tabAI}</span>`;
+            document.getElementById('tab-btn-history').innerText = dict.tabHistory;
+            document.getElementById('lbl-voiceover').innerText = dict.voiceCoach;
+
+            document.getElementById('lbl-margin').innerText = dict.accountMargin;
+            document.getElementById('lbl-bal').innerText = dict.balance;
+            document.getElementById('lbl-eq').innerText = dict.equity;
+            document.getElementById('lbl-pnl').innerText = dict.pnl;
+            document.getElementById('lbl-wr').innerText = dict.winrate;
+
+            document.getElementById('order-type-market').innerText = dict.market;
+            document.getElementById('order-type-limit').innerText = dict.limit;
+            document.getElementById('lbl-limit-price').innerText = dict.limitPrice;
+            document.getElementById('btn-set-current-price').innerText = dict.useCurrent;
+            document.getElementById('lbl-pos-size').innerText = dict.posSize;
+            document.getElementById('lbl-leverage').innerText = dict.leverage;
+
+            document.getElementById('btn-buy').innerText = dict.buy;
+            document.getElementById('btn-sell').innerText = dict.sell;
+            document.getElementById('lbl-active-pos').innerText = dict.activePos;
+            document.getElementById('btn-close-position').innerText = dict.closePos;
+            document.getElementById('ai-chat-input').placeholder = dict.aiPlaceholder;
+            document.getElementById('btn-ai-send').innerText = dict.askAi;
+            document.getElementById('no-trades-msg').innerText = dict.noTrades;
+            document.getElementById('lbl-edu-lesson-heading').innerText = dict.eduLesson;
+            document.getElementById('edu-pause-badge').innerText = dict.pauseBadge;
+
+            renderPositionCard();
+        }
+
+        window.addEventListener('load', () => {
+            resizeCanvas();
+
+            // FIXED SPEED PHYSICS LOOP
+            function runPhysicsLoop() {
+                if (!STATE.isPaused) {
+                    const speedMultiplier = Math.max(1, STATE.speed);
+                    for (let i = 0; i < speedMultiplier; i++) {
+                        updatePhysicsTick();
+                    }
+                }
+            }
+            setInterval(runPhysicsLoop, 50);
+
+            // Button Event Listeners
+            document.getElementById('lang-ru').addEventListener('click', () => setLanguage('ru'));
+            document.getElementById('lang-en').addEventListener('click', () => setLanguage('en'));
+
+            document.getElementById('btn-ai-analyze').addEventListener('click', runGeminiChartAnalysis);
+            document.getElementById('btn-ai-news').addEventListener('click', runGeminiNewsEvent);
+            document.getElementById('tab-btn-ai').addEventListener('click', switchToAITab);
+
+            document.getElementById('btn-pause').addEventListener('click', () => setPausedState(true));
+            document.getElementById('btn-play').addEventListener('click', () => setPausedState(false));
+
+            document.getElementById('speed-select').addEventListener('change', (e) => {
+                STATE.speed = parseInt(e.target.value) || 1;
+            });
+
+            document.getElementById('tab-btn-logs').addEventListener('click', () => {
+                document.getElementById('tab-logs').classList.remove('hidden');
+                document.getElementById('tab-history').classList.add('hidden');
+                document.getElementById('tab-ai').classList.add('hidden');
+            });
+
+            document.getElementById('tab-btn-history').addEventListener('click', () => {
+                document.getElementById('tab-history').classList.remove('hidden');
+                document.getElementById('tab-logs').classList.add('hidden');
+                document.getElementById('tab-ai').classList.add('hidden');
+            });
+
+            document.getElementById('btn-buy').addEventListener('click', () => executeOrder('LONG'));
+            document.getElementById('btn-sell').addEventListener('click', () => executeOrder('SHORT'));
+            document.getElementById('btn-close-position').addEventListener('click', () => closePosition('USER_CLOSE'));
+
+            document.getElementById('edu-close').addEventListener('click', () => {
+                document.getElementById('edu-card').classList.add('hidden');
+            });
+
+            document.getElementById('btn-read-edu-audio').addEventListener('click', () => {
+                speakAIText(STATE.lastEduText);
+            });
+
+            document.getElementById('preset-phase-select').addEventListener('change', (e) => {
+                STATE.phase = e.target.value;
+                document.getElementById('header-state').innerText = I18N[STATE.lang].phases[STATE.phase] || STATE.phase;
+            });
+
+            document.getElementById('btn-reset-balance').addEventListener('click', () => {
+                STATE.balance = 10000.0;
+                STATE.equity = 10000.0;
+                STATE.position = null;
+                STATE.closedTrades = [];
+                updateAccountStats();
+                renderPositionCard();
+            });
+
+            document.getElementById('leverage-slider').addEventListener('input', (e) => {
+                document.getElementById('leverage-display').innerText = `${e.target.value}x`;
+            });
+
+            document.getElementById('check-sl').addEventListener('change', (e) => {
+                document.getElementById('input-sl-price').disabled = !e.target.checked;
+                if (e.target.checked) document.getElementById('input-sl-price').value = (STATE.currentPrice * 0.98).toFixed(1);
+            });
+
+            document.getElementById('check-tp').addEventListener('change', (e) => {
+                document.getElementById('input-tp-price').disabled = !e.target.checked;
+                if (e.target.checked) document.getElementById('input-tp-price').value = (STATE.currentPrice * 1.04).toFixed(1);
+            });
+
+            document.querySelectorAll('.btn-tf').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.btn-tf').forEach(b => b.classList.remove('btn-active'));
+                    e.target.classList.add('btn-active');
+                    STATE.timeframe = e.target.getAttribute('data-tf');
+                    renderChart();
+                });
+            });
+
+            // Drawing Tools Selection Listeners
+            const toolButtons = {
+                'tool-cursor': 'cursor',
+                'tool-trendline': 'trendline',
+                'tool-horizontal': 'horizontal',
+                'tool-rectangle': 'rectangle',
+                'tool-ruler': 'ruler'
+            };
+
+            Object.keys(toolButtons).forEach(id => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('tool-active'));
+                    btn.classList.add('tool-active');
+                    STATE.activeTool = toolButtons[id];
+                });
+            });
+
+            document.getElementById('btn-clear-drawings').addEventListener('click', () => {
+                STATE.drawings = [];
+                STATE.currentDrawing = null;
+                renderChart();
+            });
+
+            // Helper to compute price at a given canvas Y coordinate
+            function priceFromY(y) {
+                const height = canvas.height;
+                const candles = CANDLE_DATA[STATE.timeframe] || [];
+                if (candles.length === 0) return STATE.currentPrice;
+
+                const candleWidth = Math.max(3, 10 * zoomLevel);
+                const candleGap = Math.max(1, 2 * zoomLevel);
+                const totalCandleSlot = candleWidth + candleGap;
+                const rightMargin = 75;
+
+                const lastIdx = candles.length - 1;
+                const visibleCandles = candles.filter((c, i) => {
+                    const x = canvas.width - rightMargin - (lastIdx - i + viewOffset) * totalCandleSlot;
+                    return x + candleWidth >= -20 && x <= canvas.width;
+                });
+
+                if (visibleCandles.length === 0) return STATE.currentPrice;
+
+                let minP = Math.min(...visibleCandles.map(c => c.low));
+                let maxP = Math.max(...visibleCandles.map(c => c.high));
+                const pPadding = (maxP - minP) * 0.08 || 10;
+                minP -= pPadding;
+                maxP += pPadding;
+
+                return minP + (maxP - minP) * ((height - 30 - y) / (height - 60));
+            }
+
+            // Order Type Selectors
+            document.getElementById('order-type-market').addEventListener('click', () => {
+                STATE.orderType = 'MARKET';
+                document.getElementById('order-type-market').className = 'flex-1 py-1 text-center font-semibold rounded text-white bg-blue-600';
+                document.getElementById('order-type-limit').className = 'flex-1 py-1 text-center font-semibold rounded text-gray-400 hover:text-white';
+                document.getElementById('limit-price-group').classList.add('hidden');
+            });
+
+            document.getElementById('order-type-limit').addEventListener('click', () => {
+                STATE.orderType = 'LIMIT';
+                document.getElementById('order-type-limit').className = 'flex-1 py-1 text-center font-semibold rounded text-white bg-blue-600';
+                document.getElementById('order-type-market').className = 'flex-1 py-1 text-center font-semibold rounded text-gray-400 hover:text-white';
+                document.getElementById('limit-price-group').classList.remove('hidden');
+                document.getElementById('input-limit-price').value = STATE.currentPrice.toFixed(1);
+            });
+
+            document.getElementById('btn-set-current-price').addEventListener('click', () => {
+                document.getElementById('input-limit-price').value = STATE.currentPrice.toFixed(1);
+            });
+
+            // Canvas Drawing & Navigation Event Listeners
+            let isDragging = false, lastMouseX = 0, lastMouseY = 0;
+
+            canvas.addEventListener('mousedown', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const price = priceFromY(mouseY);
+
+                if (STATE.activeTool === 'cursor') {
+                    isDragging = true;
+                    lastMouseX = e.clientX;
+                    lastMouseY = e.clientY;
+                } else if (STATE.activeTool === 'horizontal') {
+                    STATE.drawings.push({
+                        type: 'horizontal',
+                        price: price,
+                        color: '#3b82f6'
+                    });
+                    renderChart();
+                } else if (['trendline', 'rectangle', 'ruler'].includes(STATE.activeTool)) {
+                    STATE.isDrawing = true;
+                    STATE.currentDrawing = {
+                        type: STATE.activeTool,
+                        x1: mouseX,
+                        y1: mouseY,
+                        price1: price,
+                        x2: mouseX,
+                        y2: mouseY,
+                        price2: price,
+                        color: STATE.activeTool === 'ruler' ? '#3b82f6' : '#60a5fa'
+                    };
+                }
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                if (isDragging && STATE.activeTool === 'cursor') {
+                    const dx = e.clientX - lastMouseX;
+                    const candleWidth = Math.max(3, 10 * zoomLevel);
+                    const candleGap = Math.max(1, 2 * zoomLevel);
+                    const totalCandleSlot = candleWidth + candleGap;
+
+                    viewOffset += dx / totalCandleSlot;
+                    lastMouseX = e.clientX;
+                    lastMouseY = e.clientY;
+                    renderChart();
+                } else if (STATE.isDrawing && STATE.currentDrawing) {
+                    STATE.currentDrawing.x2 = mouseX;
+                    STATE.currentDrawing.y2 = mouseY;
+                    STATE.currentDrawing.price2 = priceFromY(mouseY);
+                    renderChart();
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                }
+                if (STATE.isDrawing && STATE.currentDrawing) {
+                    STATE.drawings.push({ ...STATE.currentDrawing });
+                    STATE.isDrawing = false;
+                    STATE.currentDrawing = null;
+                    renderChart();
+                }
+            });
+
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                zoomLevel = Math.max(0.3, Math.min(3.0, zoomLevel - e.deltaY * 0.0015));
+                renderChart();
+            });
+
+            setLanguage('ru');
+        });
+    </script>
+</body>
+</html>
