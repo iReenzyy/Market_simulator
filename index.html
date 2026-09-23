@@ -68,6 +68,59 @@
     <!-- Toast Notification Overlay -->
     <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col space-y-2 items-center"></div>
 
+    <!-- Gemini API Key Settings Modal -->
+    <div id="api-key-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-[#181c27] border border-purple-500/50 rounded-2xl p-5 md:p-6 max-w-md w-full shadow-2xl space-y-4 text-left">
+            <div class="flex justify-between items-center border-b border-[#262c3d] pb-3">
+                <h3 id="modal-title-text" class="text-sm md:text-base font-bold text-purple-300 flex items-center space-x-2">
+                    <span>🔑 Подключение ИИ Gemini</span>
+                </h3>
+                <button id="btn-close-key-modal" class="text-gray-400 hover:text-white font-bold text-sm p-1">✕</button>
+            </div>
+            
+            <!-- Step-by-Step Instructions -->
+            <div class="space-y-2 bg-[#12151c] p-3 rounded-xl border border-[#262c3d] text-xs text-gray-300">
+                <p id="modal-desc-title" class="font-semibold text-purple-400">Как бесплатно получить свой API Key?</p>
+                <ol id="modal-desc-steps" class="list-decimal list-inside space-y-1.5 text-gray-300 text-[11px] leading-relaxed">
+                    <li>Перейдите на сервис <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline hover:text-blue-300 font-semibold">Google AI Studio ↗</a></li>
+                    <li>Войдите с помощью Google-аккаунта и нажмите <strong>«Create API Key»</strong></li>
+                    <li>Скопируйте ключ (начинается с <code class="text-amber-300 font-mono">AIzaSy...</code>) и вставьте ниже</li>
+                </ol>
+                <div class="bg-purple-950/40 p-2 rounded-lg border border-purple-800/40 text-[10px] text-purple-300 flex items-start space-x-1.5">
+                    <span>🛡️</span>
+                    <span id="modal-privacy-text"><strong>Безопасность:</strong> Ключ сохраняется только в локальной памяти вашего браузера (localStorage) и отправляется напрямую в Google AI API.</span>
+                </div>
+            </div>
+            
+            <!-- Input & Key Status -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between text-[10px] text-gray-400 font-mono">
+                    <span id="lbl-api-key-input">GEMINI API KEY:</span>
+                    <span id="key-status-text" class="text-amber-400 font-medium">Ключ не задан</span>
+                </div>
+                <div class="relative">
+                    <input id="input-api-key" type="password" placeholder="Вставьте ваш AIzaSy... ключ" class="w-full bg-[#12151c] border border-[#262c3d] rounded-lg p-2.5 pr-10 text-white font-mono text-xs focus:border-purple-500 outline-none transition">
+                    <button id="btn-toggle-key-vis" type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs">👁️</button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] pt-1">
+                <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" class="text-purple-400 hover:text-purple-300 underline font-medium flex items-center space-x-1 text-[10px]">
+                    <span id="lnk-get-studio-key">Открыть Google AI Studio</span>
+                    <span>↗</span>
+                </a>
+                <span id="key-saved-indicator" class="text-emerald-400 font-semibold hidden">✓ Сохранено</span>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex space-x-2 pt-2">
+                <button id="btn-save-api-key" class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold py-2.5 rounded-lg text-xs shadow-lg transition">
+                    Сохранить и активировать ИИ
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- HEADER: Fully Responsive for Desktop & Mobile -->
     <header class="bg-[#181c27] border-b border-[#262c3d] flex flex-col md:flex-row items-center justify-between px-2 md:px-3 py-1.5 md:py-0 shrink-0 z-20 space-y-1.5 md:space-y-0">
         <!-- Pair & Price Info -->
@@ -137,6 +190,12 @@
             </button>
             <button id="btn-ai-news" class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white px-2 py-1 rounded font-medium flex items-center space-x-1 shrink-0 text-[10px] md:text-xs">
                 <span id="btn-text-ai-news">📰 ИИ Новость</span>
+            </button>
+            
+            <!-- Gemini API Key Settings Button -->
+            <button id="btn-open-api-key-modal" title="Настройки API Ключа Gemini" class="bg-[#262c3d] hover:bg-[#343b50] text-purple-300 border border-purple-800/60 px-2 py-1 rounded text-[10px] md:text-xs shrink-0 flex items-center space-x-1.5 font-semibold transition">
+                <span id="btn-key-modal-label">🔑 Настройки API Ключа</span>
+                <span id="header-key-badge" class="w-2 h-2 rounded-full bg-amber-400"></span>
             </button>
 
             <!-- Speed & Playback (Desktop) -->
@@ -281,9 +340,9 @@
                     </div>
                     
                     <div class="flex space-x-1.5 mb-1.5 overflow-x-auto pb-0.5 text-[9px] md:text-[10px] shrink-0 no-scrollbar">
-                        <button class="ai-chip bg-[#12151c] hover:bg-[#262c3d] text-purple-300 px-2 py-0.5 rounded border border-purple-900/50 whitespace-nowrap">🔍 Разобрать текущий сетап</button>
-                        <button class="ai-chip bg-[#12151c] hover:bg-[#262c3d] text-purple-300 px-2 py-0.5 rounded border border-purple-900/50 whitespace-nowrap">🛡️ Проверить риск и плечо</button>
-                        <button class="ai-chip bg-[#12151c] hover:bg-[#262c3d] text-purple-300 px-2 py-0.5 rounded border border-purple-900/50 whitespace-nowrap">⚡ Что такое Снитие ликвидности?</button>
+                        <button class="ai-chip bg-[#12151c] hover:bg-[#262c3d] text-purple-300 px-2 py-0.5 rounded border border-purple-900/50 whitespace-nowrap" data-prompt="Разбери текущую структуру рынка и спрогнозируй движение">🔍 Разобрать текущий сетап</button>
+                        <button class="ai-chip bg-[#12151c] hover:bg-[#262c3d] text-purple-300 px-2 py-0.5 rounded border border-purple-900/50 whitespace-nowrap" data-prompt="Оцени риски моей текущей позиции и дай совет">🛡️ Проверить риск и плечо</button>
+                        <button class="ai-chip bg-[#12151c] hover:bg-[#262c3d] text-purple-300 px-2 py-0.5 rounded border border-purple-900/50 whitespace-nowrap" data-prompt="Что такое снятие ликвидности (Liquidity Sweep) и как на этом торговать?">⚡ Что такое Снитие ликвидности?</button>
                     </div>
 
                     <div id="ai-response-area" class="flex-1 overflow-y-auto bg-[#12151c] p-2 rounded border border-[#262c3d] text-gray-300 leading-relaxed font-sans text-[10px] md:text-xs">
@@ -434,6 +493,7 @@
         </div>
     </div>
 
+    <!-- MAIN JAVASCRIPT ENGINE -->
     <script>
         // Custom non-intrusive Toast Notification Handler
         function showToast(msg, type = 'info') {
@@ -475,6 +535,7 @@
                 },
                 aiAnalyzeBtn: "✨ ИИ Разбор",
                 aiNewsBtn: "📰 ИИ Новость",
+                keyModalBtn: "🔑 Настройки API Ключа",
                 tabLogs: "🧠 Обучающая лента",
                 tabAI: "🤖 Ментор Gemini ИИ",
                 tabHistory: "📜 История сделок",
@@ -504,7 +565,17 @@
                 eduClose: "✕",
                 eduLesson: "💡 Урок:",
                 eduAudioBtn: "🔊 Озвучить",
-                pauseBadge: "Пауза симуляции"
+                pauseBadge: "Пауза симуляции",
+                modalTitle: "🔑 Настройки API Ключа Gemini",
+                modalDescTitle: "Как бесплатно получить свой API Key?",
+                modalSteps: `<li>Перейдите на сервис <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline hover:text-blue-300 font-semibold">Google AI Studio ↗</a></li>
+                             <li>Войдите с помощью Google-аккаунта и нажмите <strong>«Create API Key»</strong></li>
+                             <li>Скопируйте ключ (начинается с <code class="text-amber-300 font-mono">AIzaSy...</code>) и вставьте ниже</li>`,
+                modalPrivacy: `<strong>Безопасность:</strong> Ключ сохраняется только в локальной памяти вашего браузера (localStorage) и отправляется напрямую в Google AI API.`,
+                modalSaveBtn: "Сохранить и активировать ИИ",
+                modalLink: "Открыть Google AI Studio",
+                keySaved: "✓ Ключ сохранен и активен",
+                keyNotSet: "Ключ не задан"
             },
             en: {
                 simulated: "SIMULATED",
@@ -527,6 +598,7 @@
                 },
                 aiAnalyzeBtn: "✨ AI Analysis",
                 aiNewsBtn: "📰 AI News",
+                keyModalBtn: "🔑 API Key Settings",
                 tabLogs: "🧠 Educational Feed",
                 tabAI: "🤖 Gemini AI Mentor",
                 tabHistory: "📜 Trade History",
@@ -556,7 +628,17 @@
                 eduClose: "✕",
                 eduLesson: "💡 Takeaway:",
                 eduAudioBtn: "🔊 Listen",
-                pauseBadge: "Simulation Paused"
+                pauseBadge: "Simulation Paused",
+                modalTitle: "🔑 Gemini API Key Settings",
+                modalDescTitle: "How to get your free API Key?",
+                modalSteps: `<li>Go to <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline hover:text-blue-300 font-semibold">Google AI Studio ↗</a></li>
+                             <li>Sign in with Google and click <strong>"Create API Key"</strong></li>
+                             <li>Copy your key (starts with <code class="text-amber-300 font-mono">AIzaSy...</code>) and paste below</li>`,
+                modalPrivacy: `<strong>Privacy:</strong> Your key is saved only in browser localStorage and sent directly to Google AI endpoints.`,
+                modalSaveBtn: "Save & Activate AI",
+                modalLink: "Open Google AI Studio",
+                keySaved: "✓ Key Saved & Active",
+                keyNotSet: "Key Not Set"
             }
         };
 
@@ -604,11 +686,62 @@
             '1M': [], '5M': [], '15M': [], '1H': [], '4H': [], '1D': []
         };
 
+        // Gemini AI Config & Key Management
         const GEMINI_CONFIG = {
-            apiKey: "",
+            apiKey: localStorage.getItem('gemini_user_api_key') || "",
             textModel: "gemini-3-flash-preview",
             ttsModel: "gemini-2.5-flash-preview-tts"
         };
+
+        function getActiveApiKey() {
+            return GEMINI_CONFIG.apiKey || localStorage.getItem('gemini_user_api_key') || "";
+        }
+
+        function updateKeyStatusUI() {
+            const key = getActiveApiKey();
+            const statusElem = document.getElementById('key-status-text');
+            const badge = document.getElementById('header-key-badge');
+            const labelElem = document.getElementById('btn-key-modal-label');
+            const dict = I18N[STATE.lang];
+
+            if (labelElem) labelElem.innerText = dict.keyModalBtn;
+
+            document.getElementById('modal-title-text').innerHTML = `<span>${dict.modalTitle}</span>`;
+            document.getElementById('modal-desc-title').innerText = dict.modalDescTitle;
+            document.getElementById('modal-desc-steps').innerHTML = dict.modalSteps;
+            document.getElementById('modal-privacy-text').innerHTML = dict.modalPrivacy;
+            document.getElementById('btn-save-api-key').innerText = dict.modalSaveBtn;
+            document.getElementById('lnk-get-studio-key').innerText = dict.modalLink;
+
+            if (statusElem) {
+                if (key) {
+                    statusElem.innerText = dict.keySaved;
+                    statusElem.className = "text-emerald-400 font-medium";
+                } else {
+                    statusElem.innerText = dict.keyNotSet;
+                    statusElem.className = "text-amber-400 font-medium";
+                }
+            }
+
+            if (badge) {
+                if (key) {
+                    badge.className = "w-2 h-2 rounded-full bg-emerald-400";
+                } else {
+                    badge.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
+                }
+            }
+        }
+
+        function checkApiKeyOrPrompt() {
+            const key = getActiveApiKey();
+            if (!key) {
+                const modal = document.getElementById('api-key-modal');
+                if (modal) modal.classList.remove('hidden');
+                showToast(STATE.lang === 'ru' ? 'Укажите ваш бесплатный ключ Gemini API для использования ИИ' : 'Please set your free Gemini API key to use AI features', 'info');
+                return false;
+            }
+            return true;
+        }
 
         function generateHistoricalData() {
             const now = Date.now();
@@ -666,21 +799,17 @@
         function updatePhysicsTick() {
             STATE.simTime += 2000;
 
-            // Update local support & resistance boundaries for organic ranges
             if (!STATE.rangeHigh || Math.abs(STATE.currentPrice - (STATE.rangeHigh + STATE.rangeLow)/2) > 1200) {
                 STATE.rangeHigh = STATE.currentPrice + 350 + Math.random() * 200;
                 STATE.rangeLow = STATE.currentPrice - 350 - Math.random() * 200;
             }
 
-            // Realistic Stochastic Physics Engine (Replaces mechanical sine oscillator)
             let acceleration = (Math.random() - 0.498) * 3.5;
 
             if (STATE.phase === 'ACCUMULATION') {
-                // Mean reversion inside organic range + random boundary tests
                 const rangeMid = (STATE.rangeHigh + STATE.rangeLow) / 2;
                 const distFromMid = STATE.currentPrice - rangeMid;
                 
-                // Elastic force pulling price back when hitting support/resistance
                 if (STATE.currentPrice > STATE.rangeHigh) {
                     acceleration -= Math.random() * 4.5 + 1.0;
                 } else if (STATE.currentPrice < STATE.rangeLow) {
@@ -689,49 +818,38 @@
                     acceleration -= (distFromMid / 400) * 0.8;
                 }
             } else if (STATE.phase === 'BULL_TREND') {
-                // Upward trend inertia with periodic pullbacks
                 acceleration += Math.random() * 2.2 - 0.6;
-                if (Math.random() < 0.12) acceleration -= Math.random() * 4.0; // Profit taking dip
+                if (Math.random() < 0.12) acceleration -= Math.random() * 4.0;
             } else if (STATE.phase === 'BEAR_TREND') {
-                // Downward trend momentum with corrective bounces
                 acceleration -= Math.random() * 2.2 - 0.6;
-                if (Math.random() < 0.12) acceleration += Math.random() * 4.0; // Relief bounce
+                if (Math.random() < 0.12) acceleration += Math.random() * 4.0;
             } else if (STATE.phase === 'SWEEP') {
-                // Explosive volatility pulse followed by sharp rejection
                 if (Math.random() < 0.5) {
                     acceleration += (Math.random() * 8.0 + 3.0);
                 } else {
                     acceleration -= (Math.random() * 8.0 + 3.0);
                 }
-            } else { // DYNAMIC (Organic Market Cycles)
+            } else {
                 STATE.regimeTicks = (STATE.regimeTicks || 0) + 1;
                 
-                // Shift regimes organically after variable duration (not fixed clock ticks)
                 if (STATE.regimeTicks > 150 + Math.random() * 200) {
                     STATE.regimeTicks = 0;
                     STATE.trendBias = (Math.random() - 0.5) * 3.0;
-                    // Reset range boundaries
                     STATE.rangeHigh = STATE.currentPrice + 250 + Math.random() * 250;
                     STATE.rangeLow = STATE.currentPrice - 250 - Math.random() * 250;
                 }
                 
                 acceleration += (STATE.trendBias || 0) + (Math.random() - 0.495) * 3.0;
                 
-                // Bounce off boundaries in dynamic mode
                 if (STATE.currentPrice > STATE.rangeHigh) acceleration -= 3.0;
                 if (STATE.currentPrice < STATE.rangeLow) acceleration += 3.0;
             }
 
-            // Apply momentum damping (friction) and velocity update
             STATE.priceVelocity = (STATE.priceVelocity || 0) * 0.88 + acceleration;
-            
-            // Clamp extreme velocity spikes to keep market realistic
             STATE.priceVelocity = Math.max(-25, Math.min(25, STATE.priceVelocity));
 
-            // Execute realistic price movement
             STATE.currentPrice = Math.max(100, STATE.currentPrice + STATE.priceVelocity);
 
-            // Update All Timeframe Candle Structures
             ['1M', '5M', '15M', '1H', '4H', '1D'].forEach(tf => {
                 const candles = CANDLE_DATA[tf];
                 if (!candles || candles.length === 0) return;
@@ -740,7 +858,6 @@
                 const lastCandle = candles[candles.length - 1];
 
                 if (STATE.simTime - lastCandle.time >= tfMs) {
-                    // New Candle
                     candles.push({
                         time: lastCandle.time + tfMs,
                         open: STATE.currentPrice,
@@ -750,7 +867,6 @@
                         volume: Math.random() * 2 + 0.1
                     });
                 } else {
-                    // Update Current Candle
                     lastCandle.high = Math.max(lastCandle.high, STATE.currentPrice);
                     lastCandle.low = Math.min(lastCandle.low, STATE.currentPrice);
                     lastCandle.close = STATE.currentPrice;
@@ -868,7 +984,6 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Liquidation Risk Zone
             if (pos.liqPrice) {
                 const liqY = priceToY(pos.liqPrice);
                 ctx.strokeStyle = '#ef4444';
@@ -884,7 +999,6 @@
                 ctx.fillRect(0, startY, width, Math.max(0, h));
             }
 
-            // SL Line
             if (pos.sl) {
                 const slY = priceToY(pos.sl);
                 ctx.strokeStyle = '#f87171';
@@ -896,7 +1010,6 @@
                 ctx.setLineDash([]);
             }
 
-            // TP Line
             if (pos.tp) {
                 const tpY = priceToY(pos.tp);
                 ctx.strokeStyle = '#34d399';
@@ -960,7 +1073,6 @@
 
             const priceToY = (price) => height - 30 - ((price - minP) / (maxP - minP)) * (height - 60);
 
-            // Gridlines
             ctx.strokeStyle = '#1e2433';
             ctx.lineWidth = 1;
             const steps = 6;
@@ -978,18 +1090,15 @@
                 ctx.fillText(`$${priceVal.toFixed(1)}`, width - 65, y - 3);
             }
 
-            // Candlesticks
             const maxVol = Math.max(...visibleCandles.map(v => v.candle.volume));
             visibleCandles.forEach(({ candle: c, x }) => {
                 const isGreen = c.close >= c.open;
                 const color = isGreen ? '#10b981' : '#f43f5e';
 
-                // Volume Bar
                 const volH = (c.volume / (maxVol || 1)) * 40;
                 ctx.fillStyle = isGreen ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)';
                 ctx.fillRect(x, height - 30 - volH, candleWidth, volH);
 
-                // Wick
                 const highY = priceToY(c.high);
                 const lowY = priceToY(c.low);
                 ctx.strokeStyle = color;
@@ -999,7 +1108,6 @@
                 ctx.lineTo(x + candleWidth / 2, lowY);
                 ctx.stroke();
 
-                // Body
                 const openY = priceToY(c.open);
                 const closeY = priceToY(c.close);
                 const bodyY = Math.min(openY, closeY);
@@ -1009,7 +1117,6 @@
                 ctx.fillRect(x, bodyY, candleWidth, bodyH);
             });
 
-            // Pending Limit Orders Lines
             STATE.pendingOrders.forEach(po => {
                 const y = priceToY(po.limitPrice);
                 ctx.strokeStyle = po.type === 'LONG' ? '#eab308' : '#f97316';
@@ -1028,15 +1135,12 @@
                 ctx.fillText(`LIMIT ${po.type} ${po.size} BTC @ $${po.limitPrice.toFixed(1)}`, 14, y + 3);
             });
 
-            // Active Position Overlays
             if (STATE.position) {
                 drawPositionOverlays(priceToY, width, height);
             }
 
-            // User Drawings
             drawUserElements(priceToY);
 
-            // Current Price Line
             const currY = priceToY(STATE.currentPrice);
             ctx.strokeStyle = '#3b82f6';
             ctx.setLineDash([4, 4]);
@@ -1046,14 +1150,12 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Price Tag
             ctx.fillStyle = '#3b82f6';
             ctx.fillRect(width - 70, currY - 9, 65, 18);
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 10px JetBrains Mono';
             ctx.fillText(`$${STATE.currentPrice.toFixed(1)}`, width - 66, currY + 3);
 
-            // Header Legend Update
             const lastC = candles[candles.length - 1];
             if (lastC) {
                 document.getElementById('legend-open').innerText = lastC.open.toFixed(1);
@@ -1278,13 +1380,11 @@
             pnlEl.innerText = `$${pos.pnl.toFixed(2)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)`;
             pnlEl.className = pos.pnl >= 0 ? 'font-bold text-emerald-400' : 'font-bold text-rose-400';
 
-            // Liquidation
             if ((pos.type === 'LONG' && price <= pos.liqPrice) || (pos.type === 'SHORT' && price >= pos.liqPrice)) {
                 closePosition('LIQUIDATED');
                 return;
             }
 
-            // Stop Loss
             if (pos.sl) {
                 if ((pos.type === 'LONG' && price <= pos.sl) || (pos.type === 'SHORT' && price >= pos.sl)) {
                     closePosition('STOP_LOSS');
@@ -1292,7 +1392,6 @@
                 }
             }
 
-            // Take Profit
             if (pos.tp) {
                 if ((pos.type === 'LONG' && price >= pos.tp) || (pos.type === 'SHORT' && price <= pos.tp)) {
                     closePosition('TAKE_PROFIT');
@@ -1426,8 +1525,11 @@
             const toggle = document.getElementById('toggle-tts-audio');
             if (!toggle || !toggle.checked || !text || !userHasInteracted) return;
 
+            const apiKey = getActiveApiKey();
+            if (!apiKey) return;
+
             const cleanText = text.replace(/[*_#`]/g, '').slice(0, 250);
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.ttsModel}:generateContent?key=${GEMINI_CONFIG.apiKey}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.ttsModel}:generateContent?key=${apiKey}`;
             const promptLang = STATE.lang === 'ru' ? `Скажи четким тоном финансового тренера: ${cleanText}` : `Say cheerfully in clear trading voice: ${cleanText}`;
 
             const payload = {
@@ -1466,6 +1568,12 @@
             const respArea = document.getElementById('ai-response-area');
             switchToAITab();
 
+            if (!checkApiKeyOrPrompt()) {
+                respArea.innerHTML = `<div class="text-amber-400 p-3 text-center text-xs bg-[#12151c] rounded border border-amber-500/30">⚠️ Укажите ваш бесплатный API ключ Gemini для получения отчета (нажмите 🔑 Key в шапке).</div>`;
+                return;
+            }
+
+            const apiKey = getActiveApiKey();
             respArea.innerHTML = `
                 <div class="flex items-center space-x-2 text-purple-400 animate-pulse py-4 justify-center">
                     <span>✨ Gemini ИИ анализирует структуру рынка, зоны ликвидности и риск...</span>
@@ -1488,7 +1596,7 @@
             2. <strong>Рекомендация:</strong> (Long, Short или Ожидание, цели SL/TP)
             3. <strong>Риск-менеджмент:</strong> (Оценка плеча и зоны ликвидации)`;
 
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.textModel}:generateContent?key=${GEMINI_CONFIG.apiKey}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.textModel}:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: userPrompt }] }],
                 systemInstruction: { parts: [{ text: sysPrompt }] }
@@ -1508,11 +1616,14 @@
 
                 speakAIText(reply.replace(/<[^>]*>/g, '').slice(0, 180));
             } catch (err) {
-                respArea.innerHTML = `<div class="text-rose-400">Ошибка взаимодействия с Gemini: ${err.message}</div>`;
+                respArea.innerHTML = `<div class="text-rose-400">Ошибка взаимодействия с Gemini: ${err.message}. Проверьте правильность API ключа в настройках 🔑.</div>`;
             }
         }
 
         async function runGeminiNewsEvent() {
+            if (!checkApiKeyOrPrompt()) return;
+
+            const apiKey = getActiveApiKey();
             logMarketEvent(STATE.lang === 'ru' ? '📰 Генерация макроэкономической новости Gemini ИИ...' : '📰 Generating breaking AI news event...');
 
             const prompt = `Generate realistic crypto market breaking news in JSON:
@@ -1523,7 +1634,7 @@
             takeaway: string (educational lesson)
             Language: ${STATE.lang === 'ru' ? 'Russian' : 'English'}`;
 
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.textModel}:generateContent?key=${GEMINI_CONFIG.apiKey}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.textModel}:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
                 generationConfig: {
@@ -1565,6 +1676,58 @@
                 speakAIText(`${news.headline}. ${news.takeaway}`);
             } catch (err) {
                 console.error("News Generation Error:", err);
+                showToast('Не удалось сгенерировать новость. Проверьте API ключ', 'error');
+            }
+        }
+
+        async function sendCustomAiPrompt(customText) {
+            const input = document.getElementById('ai-chat-input');
+            const prompt = customText || (input ? input.value.trim() : "");
+            if (!prompt) return;
+
+            if (!checkApiKeyOrPrompt()) return;
+
+            const respArea = document.getElementById('ai-response-area');
+            if (input) input.value = '';
+
+            respArea.innerHTML = `
+                <div class="flex items-center space-x-2 text-purple-400 animate-pulse py-4 justify-center">
+                    <span>💭 ИИ Ментор анализирует запрос: "${prompt}"...</span>
+                </div>
+            `;
+
+            const sysPrompt = STATE.lang === 'ru' 
+                ? "Ты опытный ментор и трейдер по криптовалютам. Отвечай кратко, емко и с фокусом на практический опыт управления рисками и психологию рынка."
+                : "You are an expert crypto trading mentor. Give concise, actionable advice focusing on risk management and market psychology.";
+
+            const userPrompt = `Запрос трейдера: ${prompt}
+            Контекст симуляции:
+            - Символ: ${STATE.symbol}
+            - Текущая цена: $${STATE.currentPrice.toFixed(1)}
+            - Открытая позиция: ${STATE.position ? `${STATE.position.type} $${STATE.position.size}` : 'Нет открытых позиций'}
+            - Баланс: $${STATE.balance.toFixed(2)}`;
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.textModel}:generateContent?key=${getActiveApiKey()}`;
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }],
+                systemInstruction: { parts: [{ text: sysPrompt }] }
+            };
+
+            try {
+                const data = await fetchWithBackoff(url, payload);
+                const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Не удалось получить ответ от ментора.";
+
+                respArea.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-[#262c3d] pb-1.5 mb-2">
+                        <span class="font-bold text-purple-400">🤖 Ответ ИИ Ментора</span>
+                        <button onclick="speakAIText(document.getElementById('ai-chat-reply').innerText)" class="text-[10px] bg-purple-950 text-purple-300 px-2 py-0.5 rounded border border-purple-800">🔊 Озвучить</button>
+                    </div>
+                    <div id="ai-chat-reply" class="space-y-1.5 text-xs text-gray-200 leading-relaxed">${reply}</div>
+                `;
+
+                speakAIText(reply.replace(/<[^>]*>/g, '').slice(0, 180));
+            } catch (err) {
+                respArea.innerHTML = `<div class="text-rose-400 text-xs p-2">Ошибка API: ${err.message}. Проверьте ваш API ключ в настройках 🔑.</div>`;
             }
         }
 
@@ -1631,6 +1794,7 @@
             document.getElementById('lbl-edu-lesson-heading').innerText = dict.eduLesson;
             document.getElementById('edu-pause-badge').innerText = dict.pauseBadge;
 
+            updateKeyStatusUI();
             renderPositionCard();
         }
 
@@ -1756,6 +1920,44 @@
             }
             setInterval(runPhysicsLoop, 50);
 
+            // API Key Modal Listeners
+            const apiKeyModal = document.getElementById('api-key-modal');
+            const apiKeyInput = document.getElementById('input-api-key');
+
+            if (GEMINI_CONFIG.apiKey) {
+                apiKeyInput.value = GEMINI_CONFIG.apiKey;
+            }
+
+            document.getElementById('btn-open-api-key-modal').addEventListener('click', () => {
+                apiKeyInput.value = getActiveApiKey();
+                updateKeyStatusUI();
+                apiKeyModal.classList.remove('hidden');
+            });
+
+            document.getElementById('btn-close-key-modal').addEventListener('click', () => {
+                apiKeyModal.classList.add('hidden');
+            });
+
+            document.getElementById('btn-toggle-key-vis').addEventListener('click', () => {
+                apiKeyInput.type = apiKeyInput.type === 'password' ? 'text' : 'password';
+            });
+
+            document.getElementById('btn-save-api-key').addEventListener('click', () => {
+                const newKey = apiKeyInput.value.trim();
+                GEMINI_CONFIG.apiKey = newKey;
+                localStorage.setItem('gemini_user_api_key', newKey);
+
+                updateKeyStatusUI();
+                const indicator = document.getElementById('key-saved-indicator');
+                indicator.classList.remove('hidden');
+                showToast(STATE.lang === 'ru' ? 'API ключ Gemini успешно сохранен!' : 'Gemini API key saved successfully!', 'success');
+
+                setTimeout(() => {
+                    indicator.classList.add('hidden');
+                    apiKeyModal.classList.add('hidden');
+                }, 800);
+            });
+
             // Mobile Tab Buttons
             const mobTabChart = document.getElementById('mob-tab-chart');
             const mobTabTrade = document.getElementById('mob-tab-trade');
@@ -1790,10 +1992,18 @@
             if (langRuDesk) langRuDesk.addEventListener('click', () => setLanguage('ru'));
             if (langEnDesk) langEnDesk.addEventListener('click', () => setLanguage('en'));
 
-            // Controls
+            // AI Controls & Prompt Chips
             document.getElementById('btn-ai-analyze').addEventListener('click', runGeminiChartAnalysis);
             document.getElementById('btn-ai-news').addEventListener('click', runGeminiNewsEvent);
             document.getElementById('tab-btn-ai').addEventListener('click', switchToAITab);
+            document.getElementById('btn-ai-send').addEventListener('click', () => sendCustomAiPrompt());
+
+            document.querySelectorAll('.ai-chip').forEach(chip => {
+                chip.addEventListener('click', (e) => {
+                    const promptText = e.target.getAttribute('data-prompt');
+                    sendCustomAiPrompt(promptText);
+                });
+            });
 
             document.getElementById('btn-pause').addEventListener('click', () => setPausedState(true));
             document.getElementById('btn-play').addEventListener('click', () => setPausedState(false));
