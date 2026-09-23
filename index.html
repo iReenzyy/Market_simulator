@@ -661,6 +661,7 @@
             priceVelocity: 0,
             trendBias: 0,
             regimeTicks: 0,
+            waveCycle: 0,
             rangeHigh: 64600.0,
             rangeLow: 63900.0,
             phase: 'ACCUMULATION',
@@ -679,14 +680,14 @@
             lastEventTime: 0,
             lastEduText: "",
             simTime: Date.now(),
-            mobileTab: 'chart'
+            mobileTab: 'chart',
+            newsImpact: null
         };
 
         const CANDLE_DATA = {
             '1M': [], '5M': [], '15M': [], '1H': [], '4H': [], '1D': []
         };
 
-        // Gemini AI Config & Key Management
         const GEMINI_CONFIG = {
             apiKey: localStorage.getItem('gemini_user_api_key') || "",
             textModel: "gemini-3-flash-preview",
@@ -699,45 +700,27 @@
 
         function updateKeyStatusUI() {
             const key = getActiveApiKey();
-            const statusElem = document.getElementById('key-status-text');
+            const statusTxt = document.getElementById('key-status-text');
             const badge = document.getElementById('header-key-badge');
-            const labelElem = document.getElementById('btn-key-modal-label');
-            const dict = I18N[STATE.lang];
+            if (!statusTxt || !badge) return;
 
-            if (labelElem) labelElem.innerText = dict.keyModalBtn;
-
-            document.getElementById('modal-title-text').innerHTML = `<span>${dict.modalTitle}</span>`;
-            document.getElementById('modal-desc-title').innerText = dict.modalDescTitle;
-            document.getElementById('modal-desc-steps').innerHTML = dict.modalSteps;
-            document.getElementById('modal-privacy-text').innerHTML = dict.modalPrivacy;
-            document.getElementById('btn-save-api-key').innerText = dict.modalSaveBtn;
-            document.getElementById('lnk-get-studio-key').innerText = dict.modalLink;
-
-            if (statusElem) {
-                if (key) {
-                    statusElem.innerText = dict.keySaved;
-                    statusElem.className = "text-emerald-400 font-medium";
-                } else {
-                    statusElem.innerText = dict.keyNotSet;
-                    statusElem.className = "text-amber-400 font-medium";
-                }
-            }
-
-            if (badge) {
-                if (key) {
-                    badge.className = "w-2 h-2 rounded-full bg-emerald-400";
-                } else {
-                    badge.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
-                }
+            if (key) {
+                statusTxt.innerText = I18N[STATE.lang].keySaved || "✓ Ключ активен";
+                statusTxt.className = "text-emerald-400 font-semibold";
+                badge.className = "w-2 h-2 rounded-full bg-emerald-400";
+            } else {
+                statusTxt.innerText = I18N[STATE.lang].keyNotSet || "Ключ не задан";
+                statusTxt.className = "text-amber-400 font-medium";
+                badge.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
             }
         }
 
         function checkApiKeyOrPrompt() {
-            const key = getActiveApiKey();
-            if (!key) {
+            const apiKey = getActiveApiKey();
+            if (!apiKey) {
                 const modal = document.getElementById('api-key-modal');
                 if (modal) modal.classList.remove('hidden');
-                showToast(STATE.lang === 'ru' ? 'Укажите ваш бесплатный ключ Gemini API для использования ИИ' : 'Please set your free Gemini API key to use AI features', 'info');
+                showToast(STATE.lang === 'ru' ? 'Пожалуйста, укажите ваш Gemini API ключ' : 'Please enter your Gemini API Key', 'error');
                 return false;
             }
             return true;
@@ -798,55 +781,119 @@
 
         function updatePhysicsTick() {
             STATE.simTime += 2000;
+            STATE.waveCycle = (STATE.waveCycle || 0) + 1;
 
             if (!STATE.rangeHigh || Math.abs(STATE.currentPrice - (STATE.rangeHigh + STATE.rangeLow)/2) > 1200) {
                 STATE.rangeHigh = STATE.currentPrice + 350 + Math.random() * 200;
                 STATE.rangeLow = STATE.currentPrice - 350 - Math.random() * 200;
             }
 
-            let acceleration = (Math.random() - 0.498) * 3.5;
+            let acceleration = (Math.random() - 0.498) * 3.0;
 
-            if (STATE.phase === 'ACCUMULATION') {
+            // Direct influence of AI News event on chart physics
+            if (STATE.newsImpact && STATE.newsImpact.ticksRemaining > 0) {
+                const impact = STATE.newsImpact;
+                const progress = 1 - (impact.ticksRemaining / impact.totalTicks);
+
+                if (impact.impactType === 'MANIPULATION_SWEEP' || impact.impactType === 'LIQUIDITY_SQUEEZE') {
+                    // Manipulative 2-phase move: First 35% fake breakout, remaining 65% aggressive reversal
+                    if (progress < 0.35) {
+                        const diff = impact.targetPrice - STATE.currentPrice;
+                        acceleration += Math.sign(diff) * Math.min(9, Math.max(2.0, Math.abs(diff) * 0.12));
+                    } else {
+                        // Reversal past initial entry price
+                        const reversalTarget = impact.initialPrice - (impact.targetPrice - impact.initialPrice) * 1.25;
+                        const diff = reversalTarget - STATE.currentPrice;
+                        acceleration += Math.sign(diff) * Math.min(11, Math.max(2.5, Math.abs(diff) * 0.15));
+                    }
+                } else {
+                    // Standard Pump / Dump / Sideways news shock
+                    const diff = impact.targetPrice - STATE.currentPrice;
+                    acceleration += Math.sign(diff) * Math.min(8, Math.max(1.0, Math.abs(diff) * 0.08));
+                }
+
+                impact.ticksRemaining--;
+                if (impact.ticksRemaining <= 0) {
+                    STATE.newsImpact = null;
+                    const phaseSelect = document.getElementById('preset-phase-select');
+                    if (phaseSelect && phaseSelect.value === 'DYNAMIC') {
+                        STATE.phase = 'DYNAMIC';
+                        const headerState = document.getElementById('header-state');
+                        if (headerState) headerState.innerText = I18N[STATE.lang].phases['DYNAMIC'] || 'DYNAMIC';
+                        logMarketEvent(STATE.lang === 'ru' ? '🔄 ИИ: Импакт новости завершен. Возврат в Динамический цикл.' : '🔄 AI: News impact finished. Returned to Dynamic AI Cycle.');
+                    }
+                }
+            } else if (STATE.phase === 'ACCUMULATION') {
                 const rangeMid = (STATE.rangeHigh + STATE.rangeLow) / 2;
                 const distFromMid = STATE.currentPrice - rangeMid;
                 
                 if (STATE.currentPrice > STATE.rangeHigh) {
-                    acceleration -= Math.random() * 4.5 + 1.0;
+                    acceleration -= Math.random() * 4.0 + 1.0;
                 } else if (STATE.currentPrice < STATE.rangeLow) {
-                    acceleration += Math.random() * 4.5 + 1.0;
+                    acceleration += Math.random() * 4.0 + 1.0;
                 } else {
-                    acceleration -= (distFromMid / 400) * 0.8;
+                    acceleration -= (distFromMid / 450) * 0.7;
                 }
             } else if (STATE.phase === 'BULL_TREND') {
-                acceleration += Math.random() * 2.2 - 0.6;
-                if (Math.random() < 0.12) acceleration -= Math.random() * 4.0;
+                // Realistic Bull Wave Structure with capped momentum to prevent endless green candles
+                STATE.trendTicks = (STATE.trendTicks || 0) + 1;
+                const waveStep = STATE.trendTicks % 7;
+                if (waveStep < 4) {
+                    acceleration += Math.random() * 2.5 + 0.5; // Impulse up
+                } else {
+                    acceleration -= Math.random() * 2.8 + 0.8; // Corrective pullback
+                }
+                if (STATE.trendTicks > 100) {
+                    acceleration -= Math.random() * 3.5; // Profit-taking retracement
+                    if (STATE.trendTicks > 140) STATE.trendTicks = 0;
+                }
             } else if (STATE.phase === 'BEAR_TREND') {
-                acceleration -= Math.random() * 2.2 - 0.6;
-                if (Math.random() < 0.12) acceleration += Math.random() * 4.0;
+                // Realistic Bear Wave Structure with relief rallies to prevent endless red candles
+                STATE.trendTicks = (STATE.trendTicks || 0) + 1;
+                const waveStep = STATE.trendTicks % 7;
+                if (waveStep < 4) {
+                    acceleration -= Math.random() * 2.5 + 0.5; // Dump down
+                } else {
+                    acceleration += Math.random() * 2.8 + 0.8; // Relief bounce
+                }
+                if (STATE.trendTicks > 100) {
+                    acceleration += Math.random() * 3.5; // Dead cat bounce
+                    if (STATE.trendTicks > 140) STATE.trendTicks = 0;
+                }
             } else if (STATE.phase === 'SWEEP') {
                 if (Math.random() < 0.5) {
-                    acceleration += (Math.random() * 8.0 + 3.0);
+                    acceleration += (Math.random() * 7.0 + 2.5);
                 } else {
-                    acceleration -= (Math.random() * 8.0 + 3.0);
+                    acceleration -= (Math.random() * 7.0 + 2.5);
                 }
             } else {
+                // DYNAMIC CYCLE ENGINE (Simulates natural market rotation & phase transitions)
                 STATE.regimeTicks = (STATE.regimeTicks || 0) + 1;
                 
-                if (STATE.regimeTicks > 150 + Math.random() * 200) {
+                // Transition cycles: ACCUMULATION -> BULL_TREND -> ACCUMULATION -> BEAR_TREND -> SWEEP
+                if (STATE.regimeTicks > 160 + Math.random() * 120) {
                     STATE.regimeTicks = 0;
-                    STATE.trendBias = (Math.random() - 0.5) * 3.0;
-                    STATE.rangeHigh = STATE.currentPrice + 250 + Math.random() * 250;
-                    STATE.rangeLow = STATE.currentPrice - 250 - Math.random() * 250;
+                    const phasesList = ['ACCUMULATION', 'BULL_TREND', 'ACCUMULATION', 'BEAR_TREND', 'SWEEP'];
+                    const nextSubPhase = phasesList[Math.floor(Math.random() * phasesList.length)];
+                    STATE.trendBias = nextSubPhase === 'BULL_TREND' ? 1.4 : (nextSubPhase === 'BEAR_TREND' ? -1.4 : 0);
+                    STATE.rangeHigh = STATE.currentPrice + 300 + Math.random() * 200;
+                    STATE.rangeLow = STATE.currentPrice - 300 - Math.random() * 200;
                 }
                 
-                acceleration += (STATE.trendBias || 0) + (Math.random() - 0.495) * 3.0;
+                // Add natural wave dynamics to dynamic mode
+                const waveStep = STATE.waveCycle % 6;
+                if (waveStep < 4) {
+                    acceleration += (STATE.trendBias || 0) + (Math.random() - 0.48) * 2.5;
+                } else {
+                    acceleration -= (STATE.trendBias || 0) * 0.7 + (Math.random() - 0.5) * 2.0; // Wave pullback
+                }
                 
-                if (STATE.currentPrice > STATE.rangeHigh) acceleration -= 3.0;
-                if (STATE.currentPrice < STATE.rangeLow) acceleration += 3.0;
+                if (STATE.currentPrice > STATE.rangeHigh) acceleration -= 2.5;
+                if (STATE.currentPrice < STATE.rangeLow) acceleration += 2.5;
             }
 
-            STATE.priceVelocity = (STATE.priceVelocity || 0) * 0.88 + acceleration;
-            STATE.priceVelocity = Math.max(-25, Math.min(25, STATE.priceVelocity));
+            STATE.priceVelocity = (STATE.priceVelocity || 0) * 0.86 + acceleration;
+            STATE.priceVelocity = Math.max(-20, Math.min(20, STATE.priceVelocity));
 
             STATE.currentPrice = Math.max(100, STATE.currentPrice + STATE.priceVelocity);
 
@@ -870,7 +917,7 @@
                     lastCandle.high = Math.max(lastCandle.high, STATE.currentPrice);
                     lastCandle.low = Math.min(lastCandle.low, STATE.currentPrice);
                     lastCandle.close = STATE.currentPrice;
-                    lastCandle.volume += Math.random() * 0.1;
+                    lastCandle.volume += (STATE.newsImpact ? Math.random() * 1.5 + 0.5 : Math.random() * 0.1);
                 }
             });
 
@@ -1626,12 +1673,20 @@
             const apiKey = getActiveApiKey();
             logMarketEvent(STATE.lang === 'ru' ? '📰 Генерация макроэкономической новости Gemini ИИ...' : '📰 Generating breaking AI news event...');
 
-            const prompt = `Generate realistic crypto market breaking news in JSON:
+            const prompt = `Generate realistic crypto market breaking news in JSON.
+            IMPORTANT: Ensure BALANCED sentiment selection across 5 types:
+            1. "BULLISH_PUMP" (25% chance)
+            2. "BEAR_DUMP" (25% chance)
+            3. "NEUTRAL_SIDEWAYS" (20% chance)
+            4. "MANIPULATION_SWEEP" (15% chance - manipulative fake breakout up then sharp dump down)
+            5. "LIQUIDITY_SQUEEZE" (15% chance - manipulative fake dump down then sharp short squeeze pump)
+
+            Required fields:
             headline: string (5-8 words)
             description: string (2 short sentences)
-            impactType: "BULLISH_PUMP" | "BEAR_DUMP" | "LIQUIDITY_SQUEEZE"
-            priceChangePercent: number (-5.0 to +5.0)
-            takeaway: string (educational lesson)
+            impactType: "BULLISH_PUMP" | "BEAR_DUMP" | "NEUTRAL_SIDEWAYS" | "MANIPULATION_SWEEP" | "LIQUIDITY_SQUEEZE"
+            priceChangePercent: number (range: -4.5 to +4.5. For NEUTRAL_SIDEWAYS keep within -0.5 to +0.5)
+            takeaway: string (educational lesson for traders)
             Language: ${STATE.lang === 'ru' ? 'Russian' : 'English'}`;
 
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.textModel}:generateContent?key=${apiKey}`;
@@ -1659,7 +1714,34 @@
                 if (!jsonText) return;
 
                 const news = JSON.parse(jsonText);
-                STATE.targetPrice = STATE.currentPrice * (1 + news.priceChangePercent / 100);
+                const targetPrice = STATE.currentPrice * (1 + news.priceChangePercent / 100);
+
+                const totalTicks = 30 + Math.floor(Math.abs(news.priceChangePercent) * 5);
+
+                // Direct physics influence: set news impact shock
+                STATE.newsImpact = {
+                    targetPrice: targetPrice,
+                    initialPrice: STATE.currentPrice,
+                    ticksRemaining: totalTicks,
+                    totalTicks: totalTicks,
+                    impactType: news.impactType
+                };
+
+                // Show temporary phase status
+                if (news.impactType === 'BULLISH_PUMP' || news.priceChangePercent > 1.5) {
+                    STATE.phase = 'BULL_TREND';
+                } else if (news.impactType === 'BEAR_DUMP' || news.priceChangePercent < -1.5) {
+                    STATE.phase = 'BEAR_TREND';
+                } else if (news.impactType === 'NEUTRAL_SIDEWAYS') {
+                    STATE.phase = 'ACCUMULATION';
+                    STATE.rangeHigh = STATE.currentPrice + 200;
+                    STATE.rangeLow = STATE.currentPrice - 200;
+                } else {
+                    STATE.phase = 'SWEEP';
+                }
+
+                const headerState = document.getElementById('header-state');
+                if (headerState) headerState.innerText = I18N[STATE.lang].phases[STATE.phase] || STATE.phase;
 
                 document.getElementById('edu-tag').innerText = `NEWS: ${news.impactType}`;
                 document.getElementById('edu-title').innerText = news.headline;
@@ -1828,40 +1910,59 @@
 
         function checkMarketEvents() {
             const candles = CANDLE_DATA[STATE.timeframe] || [];
-            if (candles.length < 15) return;
+            if (candles.length < 20) return;
 
             const now = Date.now();
-            if (now - STATE.lastEventTime < 15000) return;
+            // Increased popup cooldown from 12s to 50s to avoid annoying spammed popups
+            if (now - STATE.lastEventTime < 50000) return;
 
             const len = candles.length;
             const last = candles[len - 1];
-            const recent = candles.slice(len - 15, len - 1);
+            const prev1 = candles[len - 2];
+            const prev2 = candles[len - 3];
+            const recent = candles.slice(len - 20, len - 1);
 
             const maxHigh = Math.max(...recent.map(c => c.high));
             const minLow = Math.min(...recent.map(c => c.low));
 
-            if (last.high > maxHigh && last.close < maxHigh) {
+            // 1. Significant Liquidity Sweep High / Low (Stop Hunt)
+            if (last.high > maxHigh * 1.002 && last.close < maxHigh) {
                 triggerEduCard('LIQUIDITY_SWEEP_HIGH', maxHigh);
                 STATE.lastEventTime = now;
                 return;
             }
 
-            if (last.low < minLow && last.close > minLow) {
+            if (last.low < minLow * 0.998 && last.close > minLow) {
                 triggerEduCard('LIQUIDITY_SWEEP_LOW', minLow);
                 STATE.lastEventTime = now;
                 return;
             }
 
-            if (last.close > maxHigh * 1.0015) {
+            // 2. Clear Break of Structure (BOS)
+            if (last.close > maxHigh * 1.003) {
                 triggerEduCard('BOS_BULLISH', maxHigh);
                 STATE.lastEventTime = now;
                 return;
             }
 
-            if (last.close < minLow * 0.9985) {
+            if (last.close < minLow * 0.997) {
                 triggerEduCard('BOS_BEARISH', minLow);
                 STATE.lastEventTime = now;
                 return;
+            }
+
+            // 3. Fair Value Gap (FVG / Imbalance)
+            if (prev2 && prev1 && last) {
+                if (prev2.high < last.low && (last.low - prev2.high) > (STATE.currentPrice * 0.0025)) {
+                    triggerEduCard('FVG_BULLISH', prev2.high);
+                    STATE.lastEventTime = now;
+                    return;
+                }
+                if (prev2.low > last.high && (prev2.low - last.high) > (STATE.currentPrice * 0.0025)) {
+                    triggerEduCard('FVG_BEARISH', prev2.low);
+                    STATE.lastEventTime = now;
+                    return;
+                }
             }
         }
 
@@ -1889,6 +1990,31 @@
                 title = isRu ? "Пробой поддержки и медвежий импульс" : "Bearish Market Structure Break";
                 desc = isRu ? `Цена пробила минимум $${priceLevel.toFixed(1)}, подтверждая доминирование продавцов.` : `Price broke below support $${priceLevel.toFixed(1)}, signaling strong selling pressure.`;
                 takeaway = isRu ? "Не пытайтесь ловить падающий нож без образования базы." : "Never counter-trend trade against a confirmed bearish BOS.";
+            } else if (eventType === 'FVG_BULLISH') {
+                tag = isRu ? "ДИСБАЛАНС (BULLISH FVG)" : "BULLISH FAIR VALUE GAP";
+                title = isRu ? "Образован импульсный дисбаланс покупателей" : "Bullish Inbalance Area Formed";
+                desc = isRu ? `Сильный покупательский импульс создал разрыв цен (FVG) над $${priceLevel.toFixed(1)}. Маркет-мейкер стремится перебалансировать эту зону.` : `Aggressive buying created a Fair Value Gap above $${priceLevel.toFixed(1)}. Market makers often fill this gap.`;
+                takeaway = isRu ? "Зона FVG часто выступает магнитом для коррекции и повторного входа." : "Fair Value Gaps serve as strong magnet targets for entry on retracements.";
+            } else if (eventType === 'FVG_BEARISH') {
+                tag = isRu ? "ДИСБАЛАНС (BEARISH FVG)" : "BEARISH FAIR VALUE GAP";
+                title = isRu ? "Медвежий разрыв ликвидности" : "Bearish Inbalance Area Formed";
+                desc = isRu ? `Продавцы создали быстрый пролив с FVG ниже $${priceLevel.toFixed(1)}. В этой зоне практически отсутствовали покупатели.` : `Aggressive selling created an imbalance below $${priceLevel.toFixed(1)} due to lack of buy liquidity.`;
+                takeaway = isRu ? "Используйте тест зоны FVG снизу вверх как точку для открытия короткой позиции." : "Look for short entries when price pulls back to retest the FVG zone.";
+            } else if (eventType === 'CHOCH_BULLISH') {
+                tag = isRu ? "СМЕНА ХАРАКТЕРА (CHOCH)" : "CHANGE OF CHARACTER (CHOCH)";
+                title = isRu ? "Ранний сигнал разворота вверх" : "Early Bullish Reversal Signal";
+                desc = isRu ? `Цена впервые сломала локальный максимум $${priceLevel.toFixed(1)} в нисходящем тренде. Покупатели перехватывают инициативу.` : `Price broke the last lower high at $${priceLevel.toFixed(1)} during a downtrend, signaling institutional reversal.`;
+                takeaway = isRu ? "CHoCH сигнализирует о возможном окончании падения. Ждите формирование ордерблока." : "CHoCH is the first sign of trend reversal. Look for demand zones to enter.";
+            } else if (eventType === 'CHOCH_BEARISH') {
+                tag = isRu ? "СМЕНА ХАРАКТЕРА (CHOCH)" : "BEARISH CHOCH SIGNAL";
+                title = isRu ? "Ранний сигнал разворота вниз" : "Early Bearish Reversal Signal";
+                desc = isRu ? `Цена продавила локальный минимум $${priceLevel.toFixed(1)} в бычьем тренде. Продавцы наращивают объемы.` : `Price broke the recent higher low at $${priceLevel.toFixed(1)} in an uptrend, warning of sell pressure.`;
+                takeaway = isRu ? "Подтягивайте стоп-лосс или фиксируйте прибыль при появлении CHoCH." : "Tighten stop losses or take partial profits when bearish CHoCH occurs.";
+            } else if (eventType === 'ORDER_BLOCK_RETEST') {
+                tag = isRu ? "ТЕСТ ОРДЕРБЛОКА (OB)" : "ORDER BLOCK RETEST";
+                title = isRu ? "Ретест зоны институциональных покупок" : "Institutional Demand Zone Retested";
+                desc = isRu ? `Цена вернулась к ордерблоку около $${priceLevel.toFixed(1)}, где ранее киты открыли позиции.` : `Price returned to test the key order block around $${priceLevel.toFixed(1)} where smart money accumulated.`;
+                takeaway = isRu ? "Ордерблоки дают высокий Risk/Reward при входе от их границы." : "Order blocks offer high Risk-to-Reward setups when trading the bounce.";
             }
 
             document.getElementById('edu-tag').innerText = tag;
